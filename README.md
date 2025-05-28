@@ -9,3 +9,7 @@ distributed under the license copied in `ACKNOWLEDGEMENTS`.
 
 This implementation (the one for RISC-V) is licensed under the MIT license, as
 specified in the included file `LICENSE`.
+
+## Implementation
+
+The runtime is implemented in `cc-rv-rt.s`.
