@@ -13,3 +13,9 @@ specified in the included file `LICENSE`.
 ## Implementation
 
 The runtime is implemented in `cc-rv-rt.s`.
+
+This implementation assumes the execution happens via the [Spike RISC-V
+simulator][1]. At the time of writing, there is no documentation for it, so the
+implementation of Spike is used as the specification (works as implemented TM).
+
+[1]: https://github.com/riscv-software-src/riscv-isa-sim
