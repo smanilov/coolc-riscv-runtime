@@ -1,7 +1,7 @@
 ## Attribution
 
 The design of this runtime library draws conceptual inspiration from a MIPS
-implementation (trap.handler, not included in this distribution), but it does
+implementation (`trap.handler`, not included in this distribution), but it does
 not include or derive from that code directly. The file `trap.handler` is
 distributed under the license copied in `ACKNOWLEDGEMENTS`.
 
