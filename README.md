@@ -1,3 +1,7 @@
+# COOL RISC-V Runtime
+
+A RISC-V runtime for the COOL programming language
+
 ## Attribution
 
 The design of this runtime library draws conceptual inspiration from a MIPS

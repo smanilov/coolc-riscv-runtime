@@ -1,9 +1,9 @@
-## Spike `tohost` reference
+# Spike `tohost` reference
 
 Looking at the code for the Spike simulator, the `tohost` interface seems to
 work in the following way (at the time of writing, May 2025).
 
-### Enabling
+## Enabling
 
 In order to use the `tohost`/`fromhost` mechanism, the simulated executable
 needs to define symbols `tohost` and `fromhost`. If either of them is not
@@ -20,7 +20,7 @@ fromhost:
     .dword 0
 ```
 
-### Encoding
+## Encoding
 
 When the executable writes to `tohost`, it takes the simulator some time to
 notice this effect. When it does, it resets the value to 0. (TODO: can this be
@@ -60,7 +60,7 @@ dividing `tohost` by 2.
 
 If the last bit is not set, then the payload is "dispatched".
 
-### Syscall Encoding
+## Syscall Encoding
 
 Dispatching a syscall is not as simple as writing the syscall opcode to
 `tohost`. If the opcode is an odd number (e.g. `sysexit` has opcode `93`), then
