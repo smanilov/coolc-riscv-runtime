@@ -2,17 +2,17 @@
 
 A RISC-V runtime for the COOL programming language
 
-## Attribution
+## Specification
 
-The design of this runtime library draws conceptual inspiration from a MIPS
-implementation (`trap.handler`, not included in this distribution), but it does
-not include or derive from that code directly. The file `trap.handler` is
-distributed under the license copied in `ACKNOWLEDGEMENTS`.
+You can find the specification runtime in [Specification](specification.md). The
+specification of this runtime library is based on [The Cool Runtime
+System](https://web.stanford.edu/class/cs143/materials/cool-runtime.pdf)
+specification document.
 
 ## License
 
-This implementation (the one for RISC-V) is licensed under the MIT license, as
-specified in the included file `LICENSE`.
+The implementation is licensed under the MIT license, as specified in the
+included file `LICENSE`.
 
 ## Implementation
 
@@ -25,6 +25,8 @@ implementation of Spike is used as the specification (works as implemented TM).
 [simulator-repo]: https://github.com/riscv-software-src/riscv-isa-sim
 
 ## Usage
+
+(instrucions for C; to be changed for COOL)
 
 You need to have a RISCV64 bare-metal cross compiler installed, e.g. [GCC on
 Arch](https://archlinux.org/packages/extra/x86_64/riscv64-elf-gcc/). You also

@@ -5,10 +5,12 @@
 /* Based on https://github.com/tock/tock/.../tock_kernel_layout.ld. */
 /* Based on https://github.com/riscv-software-src/riscv-tests/../test.ld */
 MEMORY {
-    ram (rwx) : ORIGIN = 0x80000000, LENGTH = 128M
+    text (rx) : ORIGIN = 0x80000000, LENGTH = 256M
+    data (rw) : ORIGIN = 0x90000000, LENGTH = 1536M
 }
 
 SECTIONS {
-    .text : { *(.text); *(.text.*) }
+    .text : { *(.text); *(.text.*) } >text
+    .data : { *(.data); *(.data.*) } >data
     /DISCARD/ : { *(.comment); *(.riscv.attributes) }
 }
