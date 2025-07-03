@@ -6,7 +6,7 @@
 /* Based on https://github.com/riscv-software-src/riscv-tests/../test.ld */
 MEMORY {
     text (rx) : ORIGIN = 0x80000000, LENGTH = 256M
-    data (rw) : ORIGIN = 0x90000000, LENGTH = 1536M
+    data (rw) : ORIGIN = 0x80800000, LENGTH = 1536M
 }
 
 SECTIONS {

@@ -61,8 +61,37 @@ Object.copy:
 
 # ----------------- IO interface -----------------------------------------------
 
-IO.out_string:
-    # TODO:
+.globl IO_out_string
+IO_out_string:
+    la t0, tohost_data
+    # 64 = sys_write
+    li t1, 64
+    sw t1, 0(t0)
+
+    addi t0, t0, 8
+    # fd = file descriptor where to write
+    # 1 = stdout
+    li t1, 1
+    sw t1, 0(t0)
+
+    addi t0, t0, 8
+    # pbuf = address of data to write
+    # 16(a0): address of string start
+    addi t1, a0, 16
+    sw t1, 0(t0)
+
+    addi t0, t0, 8
+    # len = length of data to write
+    # 4(a0): string object size = length + 4
+    lw t1, 4(a0)
+    addi t1, t1, -4
+    sw t1, 0(t0)
+
+    # make syscall
+    la t0, tohost
+    la t1, tohost_data
+    sw t1, 0(t0)
+
     ret
 
 IO.out_int:
@@ -107,11 +136,18 @@ String.substr:
 
 # Special symbols `tohost` and `fromhost` used to interact with the Spike
 # simulator.
+.p2align 4
 tohost:
     .dword 0
 
 fromhost:
     .dword 0
+
+tohost_data:
+    .dword 0, 0, 0, 0, 0, 0, 0, 0
+
+fromhost_data:
+    .dword 0, 0, 0, 0, 0, 0, 0, 0
 
 # ------------- Prototype objects ----------------------------------------------
 
@@ -156,7 +192,7 @@ Object_dispTab:
     .word Object.copy
 
 IO_dispTab:
-    .word IO.out_string
+    .word IO_out_string
     .word IO.in_string
     .word IO.out_int
     .word IO.in_int
