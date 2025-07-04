@@ -127,14 +127,18 @@ _read_char:
     li t1, 1
     sw t1, 24(t0)
 
+    # TODO: can 0 actually be read from stdin?
+    # store 0, so that beqz can be used for _await_data
+    sb zero, 0(t2)
+
     # make syscall
     la t0, tohost
     la t1, tohost_data
     sw t1, 0(t0)
 
     li t1, 0
-    # TODO: is this necessary?
-    # loop until byte is read
+    # loop until byte is read; this is necessary, since reading does not block:
+    # the byte would just "magically" appear, when the simulator sets it
 _await_data:
 	# Load read byte in t1; Ctrl-C Spike and write `reg 0` to verify value
     lb t1, 0(t2)
@@ -149,12 +153,25 @@ _await_data:
 
     # move the pointer one char back to overwrite '\n'
     addi t2, t2, -1
+
+    # store the length in the String
+    addi t1, a0, 16
+    sub t1, t2, t1
+    lw t0, 12(a0)  # load address of Int
+    sw t1, 12(t0)  # store value of Int
+
 _pad_with_zeros:
     sb zero, 0(t2)
 
     addi t2, t2, 1
     andi t1, t2, 3
     bnez t1, _pad_with_zeros
+
+    # store object size in the String
+    addi t1, a0, 16
+    sub t1, t2, t1
+    sra t1, t1, 2
+    sw t1, 4(a0)
 
     ret
 
