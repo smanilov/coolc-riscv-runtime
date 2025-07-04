@@ -102,9 +102,62 @@ IO.out_int:
     # TODO:
     ret
 
+.globl IO.in_string
 IO.in_string:
-    # TODO:
+    # temporarily, a0 is the address of the String object
+    # TODO: allocate memory and remove this argument
+
+    addi t2, a0, 16
+
+_read_char:
+    la t0, tohost_data
+    # 63 = sys_read
+    li t1, 63
+    sw t1, 0(t0)
+
+    # 0 = stdin
+    li t1, 0
+    sw t1, 8(t0)
+
+    # address of where to store read byte
+    # temporarily: address of string argument content
+    sw t2, 16(t0)
+
+    # 1 = length of data to read
+    li t1, 1
+    sw t1, 24(t0)
+
+    # make syscall
+    la t0, tohost
+    la t1, tohost_data
+    sw t1, 0(t0)
+
+    li t1, 0
+    # TODO: is this necessary?
+    # loop until byte is read
+_await_data:
+	# Load read byte in t1; Ctrl-C Spike and write `reg 0` to verify value
+    lb t1, 0(t2)
+    beqz t1, _await_data
+
+    # increase "to-read" pointer
+    addi t2, t2, 1
+
+    # loop until newline is read
+    li t0, 0x0a # newline character
+    bne t1, t0, _read_char
+
+    # move the pointer one char back to overwrite '\n'
+    addi t2, t2, -1
+_pad_with_zeros:
+    sb zero, 0(t2)
+
+    addi t2, t2, 1
+    andi t1, t2, 3
+    bnez t1, _pad_with_zeros
+
     ret
+
 
 IO.in_int:
     # TODO:
