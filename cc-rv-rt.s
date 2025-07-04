@@ -7,10 +7,15 @@ _start:
 
 # Epilogue of the runtime
 _end:
+    li t0, 10000 # number of iterations of delay loop; 10000 seem to be enough
+_delay_termination:
+    addi t0, t0, -1
+    bnez t0, _delay_termination
+    
     # The next three lines tell Spike to stop the simulation.
-    # la t0, tohost
-    # li t1, 1
-    # sw t1, 0(t0)
+    la t0, tohost
+    li t1, 1
+    sw t1, 0(t0)
     # Infinite loop until the simulation stops.
 _inf_loop:
     j _inf_loop
@@ -61,8 +66,8 @@ Object.copy:
 
 # ----------------- IO interface -----------------------------------------------
 
-.globl IO_out_string
-IO_out_string:
+.globl IO.out_string
+IO.out_string:
     la t0, tohost_data
     # 64 = sys_write
     li t1, 64
@@ -82,9 +87,10 @@ IO_out_string:
 
     addi t0, t0, 8
     # len = length of data to write
-    # 4(a0): string object size = length + 4
+    # 4(a0): string object size = length / 4 + 4
     lw t1, 4(a0)
     addi t1, t1, -4
+    slli t1, t1, 2
     sw t1, 0(t0)
 
     # make syscall
@@ -192,7 +198,7 @@ Object_dispTab:
     .word Object.copy
 
 IO_dispTab:
-    .word IO_out_string
+    .word IO.out_string
     .word IO.in_string
     .word IO.out_int
     .word IO.in_int
