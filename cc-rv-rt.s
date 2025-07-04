@@ -73,30 +73,28 @@ IO.out_string:
     li t1, 64
     sw t1, 0(t0)
 
-    addi t0, t0, 8
     # fd = file descriptor where to write
     # 1 = stdout
     li t1, 1
-    sw t1, 0(t0)
+    sw t1, 8(t0)
 
-    addi t0, t0, 8
     # pbuf = address of data to write
     # 16(a0): address of string start
     addi t1, a0, 16
-    sw t1, 0(t0)
+    sw t1, 16(t0)
 
-    addi t0, t0, 8
     # len = length of data to write
-    # 4(a0): string object size = length / 4 + 4
-    lw t1, 4(a0)
-    addi t1, t1, -4
-    slli t1, t1, 2
-    sw t1, 0(t0)
+    # 12(a0): string length as Int
+    lw t1, 12(a0)  # load address of Int
+    lw t1, 12(t1)  # load value of Int
+    sw t1, 24(t0)
 
     # make syscall
     la t0, tohost
     la t1, tohost_data
     sw t1, 0(t0)
+
+    add a0, zero, zero
 
     ret
 
@@ -114,7 +112,13 @@ IO.in_int:
 
 # ----------------- Int interface ----------------------------------------------
 
-# none
+# custom interface / helper functions
+
+# Reads the value of an Int object passed in $a0 and returns it in $a0.
+# not .globl; TODO: maybe it should be?
+Int.read_value:
+    lw a0, 12(a0)
+    ret
 
 # ----------------- String interface -------------------------------------------
 
