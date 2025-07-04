@@ -1,48 +1,40 @@
-// Just a dummy program to be called by the runtime. Once development of the
-// runtime is completed this will not be necessary. The entrypoint invoked by
-// the runtime will be changed from `main` to `Main.main`, which is the default
-// entrypoint of a COOL program.
-extern void IO_out_string(char* x);
+typedef struct {
+    int class_tag;
+    int object_size;
+    void* dispatch_table;
+    int value;
+} Int;
+
+typedef struct {
+    int class_tag;
+    int object_size;
+    void* dispatch_table;
+    Int* length;
+    char content[32]; // for testing purposes, length is fixed at 32
+} String;
+
+extern void IO_out_string(String* x);
+
+void assign_string_content(String* string, char* content, int length) {
+    for (int i = 0; i < length; ++i) {
+        string->content[i] = content[i];
+    }
+}
 
 int main() {
-    char length[16];
-    // offset +0 is the class tag; ignored by the function
-    // . . . .
+    Int length;
+    length.class_tag = 2;
+    length.object_size = 4;
+    length.dispatch_table = 0;
+    length.value = 6;
 
-    // offset +4 is the object size; ignored by the function
-    // . . . .
+    String string;
+    string.class_tag = 4;
+    string.object_size = 6;
+    string.dispatch_table = 0;
+    string.length = &length;
+    assign_string_content(&string, "hello\n\0\0", 8);
 
-    // offset +8 is the dispatch table; ignored by the function
-    // . . . .
-
-    // offset +12 is the value
-    // 0 0 0 6
-    length[15] = 0; length[14] = 0; length[13] = 0; length[12] = 6;
-
-    char string[32];
-    // offset +0 is the class tag; ignored by the function
-    // . . . .
-
-    // offset +4 is where the size of the object is stored in words;
-    //
-    // 0 0 0 6
-    string[7] = 0; string[6] = 0; string[5] = 0; string[4] = 6;
-
-    // offset +8 is the dispatch table; ignored by the function
-    // . . . .
-
-    // offset +12 is the Int storing the length; TODO: read
-    // <address-of-length>
-    *((int*)(string + 12)) = (int)(length);
-
-    // offset +16 is where the string contents start
-    // l l e h
-    string[19] = 'l'; string[18] = 'l'; string[17] = 'e'; string[16] = 'h';
-
-    // terminate with 0 and fill to word boundary
-    // 0 0 \n o
-    string[23] = 0; string[22] = 0; string[21] = '\n'; string[20] = 'o';
-
-    IO_out_string(string);
+    IO_out_string(&string);
     return 0;
 }
