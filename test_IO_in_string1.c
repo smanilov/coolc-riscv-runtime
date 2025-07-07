@@ -13,7 +13,7 @@ typedef struct {
     char content[256]; // for testing purposes, length is fixed at 256
 } String;
 
-extern String* IO_in_string(String*);
+extern String* IO_in_string();
 extern void IO_out_string(String* x);
 
 void assign_string_content(String* string, char* content, int length) {
@@ -64,22 +64,7 @@ void print_string(char* content, int length) {
 }
 
 int main() {
-    Int length;
-    length.class_tag = 2;
-    length.object_size = 4;
-    length.dispatch_table = 0;
-    length.value = 12;
-
-    String dummy;
-    dummy.class_tag = 4;
-    dummy.object_size = 6;
-    dummy.dispatch_table = 0;
-    dummy.length = &length;
-    assign_string_content(&dummy, "xxxxxxxxabcd", length.value);
-    // intentionally 12 chars, so we can check no more than 8 bytes are
-    // overwritten
-
-    String* read_string = IO_in_string(&dummy);
+    String* read_string = IO_in_string();
     if (compare_string_content(read_string, "hello", 5)) {
         print_string("String read: ok\n", 16);
     } else {

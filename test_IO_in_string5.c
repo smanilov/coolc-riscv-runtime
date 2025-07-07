@@ -65,10 +65,10 @@ void print_string(char* content, int length) {
 
 int main() {
     String* read_string = IO_in_string();
-    if (compare_string_content(read_string, "hello\0\0\0", 8)) {
-        print_string("Zero padded: ok\n", 16);
+    if (read_string->length->value == 5) {
+        print_string("Str len: ok\n", 12);
     } else {
-        print_string("Zero padded: no\n", 16);
+        print_string("Str len: no\n", 12);
     }
 
     return 0;

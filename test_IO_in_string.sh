@@ -27,3 +27,21 @@ if diff -q test_IO_in_string.out test_IO_in_string3.expected > /dev/null; then
 else
     echo "3: FAILED"
 fi
+
+riscv64-elf-gcc -mabi=ilp32 -march=rv32izicsr -nostdlib -o a.out cc-rv-rt.o test_IO_in_string4.c -T cc-rv-rt.ld
+spike --isa=RV32IZICSR a.out < test_IO_in_string.in > test_IO_in_string.out
+
+if diff -q test_IO_in_string.out test_IO_in_string4.expected > /dev/null; then
+    echo "4: PASSED"
+else
+    echo "4: FAILED"
+fi
+
+riscv64-elf-gcc -mabi=ilp32 -march=rv32izicsr -nostdlib -o a.out cc-rv-rt.o test_IO_in_string5.c -T cc-rv-rt.ld
+spike --isa=RV32IZICSR a.out < test_IO_in_string.in > test_IO_in_string.out
+
+if diff -q test_IO_in_string.out test_IO_in_string5.expected > /dev/null; then
+    echo "5: PASSED"
+else
+    echo "5: FAILED"
+fi
