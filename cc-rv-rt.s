@@ -11,7 +11,7 @@ _end:
 _delay_termination:
     addi t0, t0, -1
     bnez t0, _delay_termination
-    
+
     # The next three lines tell Spike to stop the simulation.
     la t0, tohost
     li t1, 1
@@ -71,30 +71,34 @@ IO.out_string:
     la t0, tohost_data
     # 64 = sys_write
     li t1, 64
-    sw t1, 0(t0)
+    sw t1, 0(t0)   # tohost_data[0] = t1 = 64
 
     # fd = file descriptor where to write
     # 1 = stdout
     li t1, 1
-    sw t1, 8(t0)
+    sw t1, 8(t0)   # tohost_data[1] = t1 = 1
 
     # pbuf = address of data to write
     # 16(a0): address of string start
     addi t1, a0, 16
-    sw t1, 16(t0)
+    sw t1, 16(t0)  # tohost_data[2] = &content
 
     # len = length of data to write
     # 12(a0): string length as Int
     lw t1, 12(a0)  # load address of Int
     lw t1, 12(t1)  # load value of Int
-    sw t1, 24(t0)
+    sw t1, 24(t0)  # tohost_data[3] = length
 
     # make syscall
     la t0, tohost
     la t1, tohost_data
-    sw t1, 0(t0)
+    sw t1, 0(t0)   # *tohost = tohost_data
 
-    add a0, zero, zero
+    la t0, fromhost
+    sw zero, 0(t0)              # fromhost[0] = 0
+_await_write:
+    lw t1, 0(t0)                # t1 = fromhost[0]
+    beq t1, zero, _await_write  # while t1 == zero: loop
 
     ret
 
