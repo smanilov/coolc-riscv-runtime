@@ -155,7 +155,7 @@ IO.in_string:
 
     addi t2, a0, 16
 
-_read_char:
+_IO.in_string.read_char:
     la t0, tohost_data
     # 63 = sys_read
     li t1, 63
@@ -174,7 +174,7 @@ _read_char:
     sw t1, 24(t0)
 
     # TODO: can 0 actually be read from stdin?
-    # store 0, so that beqz can be used for _await_data
+    # store 0, so that beqz can be used for _IO.in_string.await_data
     sb zero, 0(t2)
 
     # make syscall
@@ -185,17 +185,17 @@ _read_char:
     li t1, 0
     # loop until byte is read; this is necessary, since reading does not block:
     # the byte would just "magically" appear, when the simulator sets it
-_await_data:
+_IO.in_string.await_data:
 	# Load read byte in t1; Ctrl-C Spike and write `reg 0` to verify value
     lb t1, 0(t2)
-    beqz t1, _await_data
+    beqz t1, _IO.in_string.await_data
 
     # increase "to-read" pointer
     addi t2, t2, 1
 
     # loop until newline is read
     li t0, 0x0a # newline character
-    bne t1, t0, _read_char
+    bne t1, t0, _IO.in_string.read_char
 
     # move the pointer one char back to overwrite '\n'
     addi t2, t2, -1
@@ -232,8 +232,141 @@ _pad_with_zeros:
     ret
 
 
+# Reads an Int from stdin.
+#
+# Ignores leading spaces, but nothing else. Ignores all symbols starting from
+# the first non-digit until the first new-line.
+#
+# Examples:
+# - [space]x4x\n is read as 0
+# - [space]4x\n is read as 4
+# - [space]x\n is read as 0
+# - [space]4[space]4\n is read as 4
+# - [space]4x4\n is read as 4
+# - 4\n is read as 4
+# - 4[space]\n is read as 4
+# - 44\n is read as 44
+# - -4\n is read as -4
+# - -[space]4\n is read as 0
+# - [space]-4\n is read as -4
+# - [space]-44\n is read as -44
+# - [space]-44x\n is read as -44
+# - [space]--44x\n is read as 0
+.globl IO.in_int
 IO.in_int:
-    # TODO:
+    add s2, ra, zero   # store return address; TODO: implement stack discipline
+
+    la a0, Int_protObj # copy Int prototype
+    jal Object.copy    # ...
+
+    addi t2, a0, 8     # use dispatch_table as scratch memory, because YOLO
+                       # (also, because there is no dispatch table for Int)
+
+    add t3, zero, zero # t3 is the state of the function:
+                       # 0 means "no digits or - seen yet"
+                       # 1 means "digits are being read"
+                       # 2 means "ignore until newline"
+
+    li t4, 1 # t4 is whether the number is negative:
+             # 1 means "number is positive"
+             # -1 means "number is negative"
+
+    sw zero, 12(a0) # start with a 0 and build from there
+
+_IO.in_int.read_char:
+    la t0, tohost_data
+    # 63 = sys_read
+    li t1, 63
+    sw t1, 0(t0)
+
+    # 0 = stdin
+    li t1, 0
+    sw t1, 8(t0)
+
+    # address of where to store read byte
+    # reusing dispatch_table field, if it works...
+    sw t2, 16(t0)
+
+    # 1 = length of data to read
+    li t1, 1
+    sw t1, 24(t0)
+
+    # TODO: can 0 actually be read from stdin?
+    # store 0, so that beqz can be used for _IO.in_int.await_data
+    sb zero, 0(t2)
+
+    # make syscall
+    la t0, tohost
+    la t1, tohost_data
+    sw t1, 0(t0)
+
+    li t1, 0
+    # loop until byte is read; this is necessary, since reading does not block:
+    # the byte would just "magically" appear, when the simulator sets it
+_IO.in_int.await_data:
+	# Load read byte in t1; Ctrl-C Spike and write `reg 0` to verify value
+    lb t1, 0(t2)
+    beqz t1, _IO.in_int.await_data
+
+    bne t3, zero, _IO.in_int.state_maybe1
+
+_IO.in_int.state0:
+    li t0, 0x20 # space character: just ignore
+    beq t1, t0, _IO.in_int.read_char
+    
+    li t0, 0x2d # '-' character
+    beq t1, t0, _IO.in_int.negate
+
+    li t0, 0x30 # '0' character
+    blt t1, t0, _IO.in_int.set_state2
+
+    li t0, 0x39 # '9' character
+    blt t0, t1, _IO.in_int.set_state2
+
+    j _IO.in_int.set_state1
+
+_IO.in_int.negate:
+    li t4, -1              # number is negative
+    li t3, 1               # state is now 1
+    j _IO.in_int.read_char # loop
+
+_IO.in_int.set_state1:
+    li t3, 1
+    j _IO.in_int.state1
+
+_IO.in_int.state_maybe1:
+    li t0, 1
+    bne t3, t0, _IO.in_int.state2
+
+_IO.in_int.state1:
+    li t0, 0x39 # '9' character
+    blt t0, t1, _IO.in_int.set_state2
+
+    li t0, 0x30 # '0' character
+    blt t1, t0, _IO.in_int.set_state2
+
+    sub t1, t1, t0
+    # mul t1, t1, t4 # make negative, if needed
+
+    lw t0, 12(a0)  # load intermediate result
+    li t5, 10      # t5 = 10
+    # mul t0, t0, t5 # multiply by 10
+    add t0, t0, t1 # add new contribution
+    sw t0, 12(a0)  # update intermediate result
+
+    j _IO.in_int.read_char # loop
+
+_IO.in_int.set_state2:
+    li t3, 2
+    j _IO.in_int.state2
+
+_IO.in_int.state2:
+    # loop until newline is read
+    li t0, 0x0a # newline character
+    bne t1, t0, _IO.in_int.read_char
+
+    sw zero, 8(a0) # reset dispatch_table to 0
+
     ret
 
 # ----------------- Int interface ----------------------------------------------
@@ -265,6 +398,87 @@ String.substr:
 # none
 
 # ------------- End of implementation of predefined classes --------------------
+
+.globl __mulsi3
+__mulsi3:
+    bnez a0, __mulsi3.block1
+    # a0 is zero, so just return it
+    ret
+
+__mulsi3.block1:
+    bnez a1, __mulsi3.block2
+    # a1 is zero, so return 0
+    li a0, 0
+    ret
+
+__mulsi3.block2:
+    li t0, 1
+    bne a0, t0, __mulsi3.block3
+    # a0 is one, so return a1
+    add a0, a1, zero
+    ret
+
+__mulsi3.block3:
+    li t0, 1
+    bne a0, t0, __mulsi3.block4
+    # a0 is one, so return a1
+    add a0, a1, zero
+    ret
+
+__mulsi3.block4:
+    # jumped here from __mulsi3.block3, so t0 is 1
+    bne a1, t0, __mulsi3.block5
+    # a1 is one, so return a0
+    ret
+
+__mulsi3.block5:
+    # a0 = 7; a1 = 15 = 1111(2)
+
+    add t0, a1, zero
+    li t1, 0
+
+__mulsi3.loop1:
+    # t1 = containing_power_of_2;
+    # - e.g.: a1 = 0; t1 = 0
+    # - e.g.: a1 = 1; t1 = 0
+    # - e.g.: a1 = 3; t1 = 2
+    # - e.g.: a1 = 4; t1 = 2
+    # - e.g.: a1 = 15; t1 = 4
+    beqz t0, __mulsi3.block6
+    sra t0, t0, 1
+    addi t1, t1, 1
+    j __mulsi3.loop1
+
+__mulsi3.block6:
+    # t0 = 2^t1
+    # - e.g.: a1 = 0; t0 = 1
+    # - e.g.: a1 = 1; t0 = 1
+    # - e.g.: a1 = 3; t0 = 4
+    # - e.g.: a1 = 4; t0 = 4
+    # - e.g.: a1 = 15; t0 = 16
+    li t0, 1
+    sll t0, t0, t1
+
+    li t3, 0 # t3 = result
+
+__mulsi3.loop2:
+    beqz t1, __mulsi3.block7
+
+    and t2, t0, a1
+    beqz t2, __mulsi3.loop2_inc
+
+    sll t2, a0, t1
+    add t3, t3, t2
+
+__mulsi3.loop2_inc:
+    addi t1, t1, -1
+    sra t0, t0, 1
+    j __mulsi3.loop2
+
+__mulsi3.block7:
+    add a0, t3, zero
+    ret
+
 
 .data
 
