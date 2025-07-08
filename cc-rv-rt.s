@@ -76,6 +76,7 @@ Object.type_name:
 
 # Copies the `from_object` passed as $a0.
 #
+.globl Object.copy
 Object.copy:
     add t1, a0, zero     # t1 = &from_object
     lw t0, 4(a0)         # t0 = object size = words_left
