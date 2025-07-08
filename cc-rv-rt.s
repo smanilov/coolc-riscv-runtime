@@ -132,14 +132,91 @@ IO.out_string:
 
     la t0, fromhost
     sw zero, 0(t0)              # fromhost[0] = 0
-_await_write:
+_IO.out_string.await_write:
     lw t1, 0(t0)                # t1 = fromhost[0]
-    beq t1, zero, _await_write  # while t1 == zero: loop
+    beq t1, zero, _IO.out_string.await_write  # while t1 == zero: loop
 
     ret
 
+.globl IO.out_int
 IO.out_int:
-    # TODO:
+    # TODO: a0 is self for all methods
+
+    add t3, sp, 0
+    sb zero, 0(t3) # string terminating null char
+
+    lw t0, 12(a0) # t0 = int value
+    li t4, 1
+    beqz t0, IO.out_int.print_zero
+
+    bgtz t0, IO.out_int.positive
+
+    li t4, -1
+    neg t0, t0
+
+IO.out_int.positive:   
+    li t1, 10
+
+IO.out_int.loop:
+    beqz t0, IO.out_int.sign_adj
+
+    rem t2, t0, t1
+    addi t2, t2, 0x30 # convert digit to char
+
+    addi t3, t3, -1
+    sb t2, 0(t3) # print digit
+
+    div t0, t0, t1
+    j IO.out_int.loop
+
+IO.out_int.sign_adj:
+    bgez t4, IO.out_int.print
+
+    li t2, 0x2d 
+    addi t3, t3, -1
+    sb t2, 0(t3) # print '-'
+
+    j IO.out_int.print
+
+IO.out_int.print_zero:
+    li t2, 0x30
+    addi t3, t3, -1
+    sb t2, 0(t3) # print '0'
+
+IO.out_int.print:
+    sub t2, sp, t3  # length = sp - t3
+
+    la t0, tohost_data
+    # 64 = sys_write
+    li t1, 64
+    sw t1, 0(t0)   # tohost_data[0] = t1 = 64
+
+    # fd = file descriptor where to write
+    # 1 = stdout
+    li t1, 1
+    sw t1, 8(t0)   # tohost_data[1] = t1 = 1
+
+    # pbuf = address of data to write
+    # 16(a0): address of string start
+    sw t3, 16(t0)  # tohost_data[2] = &content
+
+    # len = length of data to write
+    # 12(a0): string length as Int
+    sw t2, 24(t0)  # tohost_data[3] = length
+
+    # make syscall
+    la t0, tohost
+    la t1, tohost_data
+    sw t1, 0(t0)   # *tohost = tohost_data
+
+    la t0, fromhost
+    sw zero, 0(t0)              # fromhost[0] = 0
+_IO.out_int.await_write:
+    lw t1, 0(t0)                # t1 = fromhost[0]
+    beq t1, zero, _IO.out_int.await_write  # while t1 == zero: loop
+
+    # TODO: clear the stack
+
     ret
 
 .globl IO.in_string
