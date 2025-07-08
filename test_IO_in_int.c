@@ -118,5 +118,11 @@ int main() {
     x = IO_in_int();
     print_string(x->value == 0 ? "18: PASSED\n" : "18: FAILED\n", 11);
 
+    if (x->class_tag == 2 && x->object_size == 4 && x->dispatch_table == 0) {
+        print_string("19: PASSED\n", 11);
+    } else {
+        print_string("19: FAILED\n", 11);
+    }
+
     return 0;
 }
