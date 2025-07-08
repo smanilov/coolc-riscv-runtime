@@ -52,17 +52,20 @@ Object.abort:
     # TODO:
     ret
 
+.globl Object.type_name
 Object.type_name:
-    # TODO:
+    lw a0, 0(a0)          # t0 = class tag
+    sll a0, a0, 2         # offset = class tag x 4
+    la t0, class_nameTab  # t0 = class_nameTab
+    add a0, t0, a0        # a0 = class_nameTab + offset = &X_className
+    lw a0, 0(a0)          # a0 = X_className
+
     ret
 
 # Copies the `from_object` passed as $a0.
 #
 Object.copy:
     add t1, a0, zero     # t1 = &from_object
-    # la t1, class_objTab  # t1 = class_objTab
-    # sll t0, t0, 3            # t0 = t0 * 8 (offset of _protObj) 
-    # add t1, t1, t0       # t1 = &X_protObj
     lw t0, 4(a0)         # t0 = object size = words_left
 
     li t2, -1            # store GC tag first (before &to_object)
@@ -279,20 +282,86 @@ class_nameTab:
     .word Bool_className
     .word String_className
 
+    .word -1 # GC tag
+Object_classNameLength:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 6  # first attribute; value of Int; default is 0
+
+    .word -1 # GC tag
 Object_className:
+    .word 4  # class tag;       4 for String
+    .word 6  # object size;     6 words (24 bytes); GC tag not included
+    .word String_dispTab
+    .word Object_classNameLength  # first attribute; pointer length
     .string "Object"
+    .byte 0
 
+    .word -1 # GC tag
+IO_classNameLength:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 2  # first attribute; value of Int; default is 0
+
+    .word -1 # GC tag
 IO_className:
-    .string "IO"
+    .word 4  # class tag;       4 for String
+    .word 5  # object size;     5 words (20 bytes); GC tag not included
+    .word String_dispTab
+    .word IO_classNameLength  # first attribute; pointer length
+    .string "IO" # includes terminating null char
+    .byte 0
 
+    .word -1 # GC tag
+Int_classNameLength:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 3  # first attribute; value of Int; default is 0
+
+    .word -1 # GC tag
 Int_className:
-    .string "Int"
+    .word 4  # class tag;       4 for String
+    .word 5  # object size;     5 words (20 bytes); GC tag not included
+    .word String_dispTab
+    .word Int_classNameLength  # first attribute; pointer length
+    .string "Int" # includes terminating null char
 
+    .word -1 # GC tag
+Bool_classNameLength:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 4  # first attribute; value of Int; default is 0
+
+    .word -1 # GC tag
 Bool_className:
-    .string "Bool"
+    .word 4  # class tag;       4 for String
+    .word 6  # object size;     6 words (24 bytes); GC tag not included
+    .word String_dispTab
+    .word Bool_classNameLength  # first attribute; pointer length
+    .string "Bool" # includes terminating null char
+    .byte 0
+    .byte 0
+    .byte 0
 
+    .word -1 # GC tag
+String_classNameLength:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 6  # first attribute; value of Int; default is 0
+
+    .word -1 # GC tag
 String_className:
-    .string "String"
+    .word 4  # class tag;       4 for String
+    .word 6  # object size;     6 words (24 bytes); GC tag not included
+    .word String_dispTab
+    .word String_classNameLength  # first attribute; pointer length
+    .string "String" # includes terminating null char
+    .byte 0
 
 # ------------- Prototype objects ----------------------------------------------
 
