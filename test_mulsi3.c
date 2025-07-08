@@ -56,7 +56,16 @@ int main() {
 
     // if extension `m' or `zmmul' is not used, GCC will generate __mulsi3
     // intrinsic for x * y
-    print_string(x * y == 200 ? "PASSED\n" : "FAILED\n", 7);
+    print_string(x * y == 200 ? "1: PASSED\n" : "1: FAILED\n", 10);
+
+    x = -10; y = 20;
+    print_string(x * y == -200 ? "2: PASSED\n" : "2: FAILED\n", 10);
+
+    x = 10; y = -20;
+    print_string(x * y == -200 ? "3: PASSED\n" : "3: FAILED\n", 10);
+
+    x = -10; y = -20;
+    print_string(x * y == 200 ? "4: PASSED\n" : "4: FAILED\n", 10);
 
     return 0;
 }

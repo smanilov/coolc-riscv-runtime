@@ -432,8 +432,11 @@ __mulsi3.block4:
     ret
 
 __mulsi3.block5:
-    # a0 = 7; a1 = 15 = 1111(2)
+    bgez a1, __mulsi3.block6 
+    neg a0, a0
+    neg a1, a1
 
+__mulsi3.block6:
     add t0, a1, zero
     li t1, 0
 
@@ -444,12 +447,12 @@ __mulsi3.loop1:
     # - e.g.: a1 = 3; t1 = 2
     # - e.g.: a1 = 4; t1 = 2
     # - e.g.: a1 = 15; t1 = 4
-    beqz t0, __mulsi3.block6
+    beqz t0, __mulsi3.block7
     sra t0, t0, 1
     addi t1, t1, 1
     j __mulsi3.loop1
 
-__mulsi3.block6:
+__mulsi3.block7:
     # t0 = 2^t1
     # - e.g.: a1 = 0; t0 = 1
     # - e.g.: a1 = 1; t0 = 1
@@ -462,7 +465,7 @@ __mulsi3.block6:
     li t3, 0 # t3 = result
 
 __mulsi3.loop2:
-    beqz t1, __mulsi3.block7
+    beqz t1, __mulsi3.block8
 
     and t2, t0, a1
     beqz t2, __mulsi3.loop2_inc
@@ -475,7 +478,7 @@ __mulsi3.loop2_inc:
     sra t0, t0, 1
     j __mulsi3.loop2
 
-__mulsi3.block7:
+__mulsi3.block8:
     add a0, t3, zero
     ret
 
