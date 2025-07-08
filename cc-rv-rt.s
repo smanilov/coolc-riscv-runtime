@@ -4,6 +4,7 @@
 .globl _start
 _start:
     la gp, heap_start
+
     call main
 
 # Epilogue of the runtime
@@ -398,59 +399,6 @@ String.substr:
 # none
 
 # ------------- End of implementation of predefined classes --------------------
-
-.globl __mulsi3
-__mulsi3:
-    bgez a1, __mulsi3.block1
-    neg a0, a0
-    neg a1, a1
-
-__mulsi3.block1:
-    add t0, a1, zero
-    li t1, 0
-
-__mulsi3.loop1:
-    # t1 = containing_power_of_2;
-    # - e.g.: a1 = 0; t1 = 0
-    # - e.g.: a1 = 1; t1 = 0
-    # - e.g.: a1 = 3; t1 = 2
-    # - e.g.: a1 = 4; t1 = 2
-    # - e.g.: a1 = 15; t1 = 4
-    beqz t0, __mulsi3.block2
-    sra t0, t0, 1
-    addi t1, t1, 1
-    j __mulsi3.loop1
-
-__mulsi3.block2:
-    # t0 = 2^t1
-    # - e.g.: a1 = 0; t0 = 1
-    # - e.g.: a1 = 1; t0 = 1
-    # - e.g.: a1 = 3; t0 = 4
-    # - e.g.: a1 = 4; t0 = 4
-    # - e.g.: a1 = 15; t0 = 16
-    li t0, 1
-    sll t0, t0, t1
-
-    li t3, 0 # t3 = result
-
-__mulsi3.loop2:
-    beqz t1, __mulsi3.block3
-
-    and t2, t0, a1
-    beqz t2, __mulsi3.loop2_inc
-
-    sll t2, a0, t1
-    add t3, t3, t2
-
-__mulsi3.loop2_inc:
-    addi t1, t1, -1
-    sra t0, t0, 1
-    j __mulsi3.loop2
-
-__mulsi3.block3:
-    add a0, t3, zero
-    ret
-
 
 .data
 
