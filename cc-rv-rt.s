@@ -48,9 +48,21 @@ String_init:
 
 # ----------------- Object interface -------------------------------------------
 
+.globl Object.abort
 Object.abort:
-    # TODO:
-    ret
+    # don't save ra before call, since this method does not return
+    # print abort message
+    la a0, _abortMessage
+    jal IO.out_string
+
+    # The next three lines tell Spike to stop the simulation.
+    la t0, tohost
+    li t1, 1
+    sw t1, 0(t0)
+
+    # an infinite loop for good measure
+_abortInfLoop:
+    j _abortInfLoop
 
 .globl Object.type_name
 Object.type_name:
@@ -282,6 +294,7 @@ class_nameTab:
     .word Bool_className
     .word String_className
 
+
     .word -1 # GC tag
 Object_classNameLength:
     .word 2  # class tag;       2 for Int
@@ -297,6 +310,7 @@ Object_className:
     .word Object_classNameLength  # first attribute; pointer length
     .string "Object"
     .byte 0
+
 
     .word -1 # GC tag
 IO_classNameLength:
@@ -314,6 +328,7 @@ IO_className:
     .string "IO" # includes terminating null char
     .byte 0
 
+
     .word -1 # GC tag
 Int_classNameLength:
     .word 2  # class tag;       2 for Int
@@ -328,6 +343,7 @@ Int_className:
     .word String_dispTab
     .word Int_classNameLength  # first attribute; pointer length
     .string "Int" # includes terminating null char
+
 
     .word -1 # GC tag
 Bool_classNameLength:
@@ -346,6 +362,7 @@ Bool_className:
     .byte 0
     .byte 0
     .byte 0
+
 
     .word -1 # GC tag
 String_classNameLength:
@@ -433,5 +450,24 @@ class_objTab:
     .word Bool_init
     .word String_protObj
     .word String_init
+
+# ------------- System messages ------------------------------------------------
+
+    .word -1 # GC tag
+_abortMessageLength:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 49  # first attribute; value of Int; default is 0
+
+    .word -1 # GC tag
+_abortMessage:
+    .word 4  # class tag;       4 for String
+    .word 17  # object size;     17 words (16 + 52 bytes); GC tag not included
+    .word String_dispTab
+    .word _abortMessageLength # first attribute; pointer length
+    .string "Program terminated due to call to Object.abort()\n" # includes terminating null char
+    .byte 0
+    .byte 0
 
 heap_start:
