@@ -347,11 +347,11 @@ _IO.in_int.state1:
     blt t1, t0, _IO.in_int.set_state2
 
     sub t1, t1, t0
-    # mul t1, t1, t4 # make negative, if needed
+    mul t1, t1, t4 # make negative, if needed
 
     lw t0, 12(a0)  # load intermediate result
     li t5, 10      # t5 = 10
-    # mul t0, t0, t5 # multiply by 10
+    mul t0, t0, t5 # multiply by 10
     add t0, t0, t1 # add new contribution
     sw t0, 12(a0)  # update intermediate result
 
@@ -368,6 +368,7 @@ _IO.in_int.state2:
 
     sw zero, 8(a0) # reset dispatch_table to 0
 
+    add ra, s2, zero # restore return address
     ret
 
 # ----------------- Int interface ----------------------------------------------
