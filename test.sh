@@ -6,3 +6,4 @@
 ./test_Object_type_name.sh 
 ./test_String_init.sh
 ./test_String_length.sh
+./test_String_concat.sh

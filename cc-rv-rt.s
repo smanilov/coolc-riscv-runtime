@@ -102,14 +102,14 @@ Object.copy:
 
     add a0, gp, zero     # result = &to_object
 
-_copy_loop:
+_Object.copy_loop:
     lw t2, 0(t1)         # copy word
     sw t2, 0(gp)         # ...
 
     addi t1, t1, 4       # move "from" ptr
     addi gp, gp, 4       # move "to" ptr
     addi t0, t0, -1      # --words_left
-    bnez t0, _copy_loop
+    bnez t0, _Object.copy_loop
 
     ret
 
@@ -310,12 +310,12 @@ _IO.in_string.await_data:
     lw t0, 12(a0)  # load address of Int
     sw t1, 12(t0)  # store value of Int
 
-_pad_with_zeros:
+_IO.in_string.pad_with_zeros:
     sb zero, 0(t2)
 
     addi t2, t2, 1
     andi t1, t2, 3
-    bnez t1, _pad_with_zeros
+    bnez t1, _IO.in_string.pad_with_zeros
 
     # store object size in the String
     addi t1, a0, 16
@@ -486,8 +486,85 @@ String.length:
     lw a0, 12(a0) # load address of Int
     ret
 
+# Returns in a0 a new String object, that is the concatenation of the self
+# String (passed in a0) and the method argument (passed in a1).
+.globl String.concat
 String.concat:
-    # TODO:
+    # TODO: save saved registers before usage
+    add s2, ra, zero   # store return address; TODO: implement stack discipline
+
+    add s3, a0, zero   # store self in s3
+    add s4, a1, zero   # store arg in s4
+
+    la a0, Int_protObj # copy Int prototype first, to store the length
+    jal Object.copy    # ...
+    add s1, a0, zero   # save address of Int before next fn call
+
+    la a0, String_protObj # copy String prototype
+    jal Object.copy       # ...
+    sw s1, 12(a0)         # store address of Int
+
+    addi t2, a0, 16    # t2 = &new_content
+    addi t4, s3, 16    # t4 = &self->content
+
+    lw t3, 12(s3)      # t3 = &self->length
+    lw t3, 12(t3)      # t3 = self->length->value
+
+_String.concat.copy_first:
+    beqz t3, _String.concat.copy_second
+
+    lb t1, 0(t4)       # t1 = self->content[i]
+    sb t1, 0(t2)       # new_content[i] = t1
+    addi t4, t4, 1     # ++i
+    addi t2, t2, 1     # ...
+    addi t3, t3, -1    # ...
+    j _String.concat.copy_first
+
+_String.concat.copy_second:
+
+    lw t3, 12(s4)      # t3 = &arg->length
+    lw t3, 12(t3)      # t3 = arg->length->value
+    addi t4, s4, 16    # t4 = &arg->content
+
+_String.concat.copy_second_loop:
+    beqz t3, _String.concat.compute_length
+
+    lb t1, 0(t4)       # t1 = self->content[i]
+    sb t1, 0(t2)       # new_content[i] = t1
+    addi t4, t4, 1     # ++i
+    addi t2, t2, 1     # ...
+    addi t3, t3, -1    # ...
+    j _String.concat.copy_second_loop
+
+_String.concat.compute_length:
+    # store the length in the String
+    addi t1, a0, 16    # t1 = &result->content
+    sub t1, t2, t1     # t1 = offset of [first byte past last written byte] from &result->content
+
+    lw t0, 12(a0)  # load address of Int
+    sw t1, 12(t0)  # store value of Int
+
+_String.concat.pad_with_zeros:
+    sb zero, 0(t2)
+
+    addi t2, t2, 1
+    andi t1, t2, 3
+    bnez t1, _String.concat.pad_with_zeros
+
+    # store object size in the String
+    addi t1, a0, 16    # t1 = &result->content
+    sub t1, t2, t1     # t1 = offset of [first byte past last zero-pad byte] from &result->content
+    sra t1, t1, 2      # t1 /= 4
+    addi t1, t1, 4     # add 4 words for tag, size, disptab, and length
+    sw t1, 4(a0)       # result->object_size = t1
+
+    # adjust gp; initially, Object.copy allocated 5 words for the string; the
+    # real size is computed in t1
+    addi t1, t1, -5 # t1 = remaining words
+    sll t1, t1, 2   # t1 = remaining bytes
+    add gp, gp, t1  # gp += remaining bytes
+
+    add ra, s2, zero   # restore return address
     ret
 
 String.substr:
