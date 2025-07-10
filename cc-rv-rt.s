@@ -66,7 +66,7 @@ Object.abort:
     # don't save ra before call, since this method does not return
 
     # print abort message
-    la a1, _abortMessage
+    la a1, _Object.abort.message
     jal IO.out_string
 
     # The next three lines tell Spike to stop the simulation.
@@ -75,8 +75,7 @@ Object.abort:
     sw t1, 0(t0)
 
     # an infinite loop for good measure
-_abortInfLoop:
-    j _abortInfLoop
+    j _inf_loop
 
 .globl Object.type_name
 Object.type_name:
@@ -567,9 +566,100 @@ _String.concat.pad_with_zeros:
     add ra, s2, zero   # restore return address
     ret
 
+# Returns in a0 the String object, that represents the substring of the String passed
+# as a0 starting from (0-indexed) index `from` (in a1; an Int) and length
+# `length` (in a2; an Int).
+#
+# Execution terminates if the requested substring is out of range and an error
+# message is printed.
+.globl String.substr
 String.substr:
-    # TODO:
+    lw t0, 12(a1)  # t0 = from->value
+    bltz t0, _String.substr.out_of_range
+
+    lw t1, 12(a2)  # t1 = length->value
+    bltz t1, _String.substr.out_of_range
+
+    lw t2, 12(a0)
+    lw t2, 12(t2)  # t2 = self->length->value
+    add t3, t0, t1 # t3 = from->value + length->value
+    blt t2, t3, _String.substr.out_of_range
+
+    # indexes are good; create a new String and copy content
+    # TODO: save saved registers before usage
+    add s2, ra, zero   # store return address; TODO: implement stack discipline
+
+    add s3, a0, zero   # store self in s3
+
+    la a0, Int_protObj # copy Int prototype first, to store the length
+    jal Object.copy    # ...
+    add s1, a0, zero   # save address of Int before next fn call
+
+    la a0, String_protObj # copy String prototype
+    jal Object.copy       # ...
+    sw s1, 12(a0)         # store address of Int
+
+    addi t2, a0, 16    # t2 = &new_content
+    addi t4, s3, 16    # t4 = &self->content
+    lw t0, 12(a1)      # t0 = from->value
+
+    add t4, t4, t0    # t4 = &self->content[from->value]
+
+    lw t3, 12(a2)      # t3 = length->value
+
+_String.substr.copy:
+    beqz t3, _String.substr.store_length
+
+    lb t1, 0(t4)       # t1 = self->content[i]
+    sb t1, 0(t2)       # new_content[i] = t1
+    addi t4, t4, 1     # ++i
+    addi t2, t2, 1     # ...
+    addi t3, t3, -1    # ...
+    j _String.substr.copy
+
+_String.substr.store_length:
+    # store the length in the String
+    addi t1, a0, 16    # t1 = &result->content
+    sub t1, t2, t1     # t1 = offset of [first byte past last written byte] from &result->content
+
+    lw t0, 12(a0)  # load address of Int
+    sw t1, 12(t0)  # store value of Int
+
+_String.substr.pad_with_zeros:
+    sb zero, 0(t2)
+
+    addi t2, t2, 1
+    andi t1, t2, 3
+    bnez t1, _String.substr.pad_with_zeros
+
+    # store object size in the String
+    addi t1, a0, 16    # t1 = &result->content
+    sub t1, t2, t1     # t1 = offset of [first byte past last zero-pad byte] from &result->content
+    sra t1, t1, 2      # t1 /= 4
+    addi t1, t1, 4     # add 4 words for tag, size, disptab, and length
+    sw t1, 4(a0)       # result->object_size = t1
+
+    # adjust gp; initially, Object.copy allocated 5 words for the string; the
+    # real size is computed in t1
+    addi t1, t1, -5 # t1 = remaining words
+    sll t1, t1, 2   # t1 = remaining bytes
+    add gp, gp, t1  # gp += remaining bytes
+
+    add ra, s2, zero   # restore return address
     ret
+
+_String.substr.out_of_range:
+    # print abort message
+    la a1, _String.substr.out_of_range.message
+    jal IO.out_string
+
+    # The next three lines tell Spike to stop the simulation.
+    la t0, tohost
+    li t1, 1
+    sw t1, 0(t0)
+
+    # an infinite loop for good measure
+    j _inf_loop
 
 # ----------------- Bool interface ---------------------------------------------
 
@@ -766,20 +856,38 @@ class_objTab:
 # ------------- System messages ------------------------------------------------
 
     .word -1 # GC tag
-_abortMessageLength:
+_Object.abort.message_length:
     .word 2  # class tag;       2 for Int
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
-    .word 49  # first attribute; value of Int; default is 0
+    .word 49  # first attribute; value of Int
 
     .word -1 # GC tag
-_abortMessage:
+_Object.abort.message:
     .word 4  # class tag;       4 for String
     .word 17  # object size;     17 words (16 + 52 bytes); GC tag not included
     .word String_dispTab
-    .word _abortMessageLength # first attribute; pointer length
+    .word _Object.abort.message_length # first attribute; pointer length
     .string "Program terminated due to call to Object.abort()\n" # includes terminating null char
     .byte 0
     .byte 0
 
+    .word -1 # GC tag
+_String.substr.out_of_range.message_length:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 60  # first attribute; value of Int
+
+    .word -1 # GC tag
+_String.substr.out_of_range.message:
+    .word 4  # class tag;       4 for String
+    .word 19  # object size;     17 words (16 + 60 bytes); GC tag not included
+    .word String_dispTab
+    .word _String.substr.out_of_range.message_length # first attribute; pointer length
+    .string "Call to String.substr() requested a substring out of range\n" # includes terminating null char
+    # no padding needed, since length divides by 4
+
+# TODO: generate from compiler or add .static section and put this alone in
+# .data
 heap_start:
