@@ -13,8 +13,14 @@ typedef struct {
     char content[256]; // for testing purposes, length is fixed at 256
 } String;
 
-extern void IO_out_int(Int* );
-extern void IO_out_string(String* x);
+typedef struct {
+    int class_tag;
+    int object_size;
+    void* dispatch_table;
+} IO;
+
+extern void IO_out_int(IO*, Int*);
+extern void IO_out_string(IO*, String*);
 
 void assign_string_content(String* string, char* content, int length) {
     for (int i = 0; i < length; ++i) {
@@ -60,7 +66,8 @@ void print_string(char* content, int length) {
 
     pad_string_content(&string, length);
 
-    IO_out_string(&string);
+    IO io;
+    IO_out_string(&io, &string);
 }
 
 int main() {
@@ -70,19 +77,20 @@ int main() {
     x.dispatch_table = 0;
 
     x.value = 0;
-    IO_out_int(&x);
+    IO io;
+    IO_out_int(&io, &x);
     print_string("\n", 1);
 
     x.value = 42;
-    IO_out_int(&x);
+    IO_out_int(&io, &x);
     print_string("\n", 1);
 
     x.value = 401020;
-    IO_out_int(&x);
+    IO_out_int(&io, &x);
     print_string("\n", 1);
 
     x.value = -12321;
-    IO_out_int(&x);
+    IO_out_int(&io, &x);
     print_string("\n", 1);
 
     return 0;

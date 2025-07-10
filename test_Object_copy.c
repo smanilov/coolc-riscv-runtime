@@ -13,8 +13,14 @@ typedef struct {
     char content[256]; // for testing purposes, length is fixed at 256
 } String;
 
-extern void IO_out_string(String* x);
-extern void* Object_copy(void* x);
+typedef struct {
+    int class_tag;
+    int object_size;
+    void* dispatch_table;
+} IO;
+
+extern void IO_out_string(IO*, String*);
+extern void* Object_copy(void*);
 
 void assign_string_content(String* string, char* content, int length) {
     for (int i = 0; i < length; ++i) {
@@ -60,7 +66,8 @@ void print_string(char* content, int length) {
 
     pad_string_content(&string, length);
 
-    IO_out_string(&string);
+    IO io;
+    IO_out_string(&io, &string);
 }
 
 int main() {
@@ -78,11 +85,15 @@ int main() {
     assign_string_content(&string, "hello world!\n", 13);
 
     String* y = Object_copy((void*)&string);
-    IO_out_string(y); // expected: hello world!\n
-                      // shallow copy, but ok, since length does not change
+    IO io;
+    IO_out_string(&io, y); // expected: hello world!\n
+                           // shallow copy, but ok, since length does not change
 
     Int* z = Object_copy((void*)&length);
-    if (z->class_tag == 2 && z->object_size == 4 && z->dispatch_table == 0 && z->value == 13) {
+    if (z->class_tag == 2 &&
+        z->object_size == 4 &&
+        z->dispatch_table == 0 &&
+        z->value == 13) {
         print_string("Int copied: ok\n", 15);
     } else {
         print_string("Int copied: no\n", 15);

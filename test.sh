@@ -4,3 +4,4 @@
 ./test_Object_abort.sh 
 ./test_Object_copy.sh 
 ./test_Object_type_name.sh 
+./test_String_init.sh

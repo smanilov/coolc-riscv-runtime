@@ -13,7 +13,13 @@ typedef struct {
     char content[256]; // for testing purposes, length is fixed at 256
 } String;
 
-extern void IO_out_string(String* x);
+typedef struct {
+    int class_tag;
+    int object_size;
+    void* dispatch_table;
+} IO;
+
+extern void IO_out_string(IO*, String*);
 extern String* Object_type_name(void* x);
 
 void assign_string_content(String* string, char* content, int length) {
@@ -60,7 +66,8 @@ void print_string(char* content, int length) {
 
     pad_string_content(&string, length);
 
-    IO_out_string(&string);
+    IO io;
+    IO_out_string(&io, &string);
 }
 
 int main() {
@@ -78,12 +85,13 @@ int main() {
     assign_string_content(&string, "hello", 5);
 
     String* y = Object_type_name((void*)&string);
-    IO_out_string(y); // expected: String
+    IO io;
+    IO_out_string(&io, y); // expected: String
 
     print_string("\n", 1);
 
     String* z = Object_type_name((void*)&length);
-    IO_out_string(z); // expected: Int
+    IO_out_string(&io, z); // expected: Int
 
     print_string("\n", 1);
 

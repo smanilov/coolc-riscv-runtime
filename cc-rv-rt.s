@@ -64,8 +64,9 @@ String_init:
 .globl Object.abort
 Object.abort:
     # don't save ra before call, since this method does not return
+
     # print abort message
-    la a0, _abortMessage
+    la a1, _abortMessage
     jal IO.out_string
 
     # The next three lines tell Spike to stop the simulation.
@@ -114,6 +115,9 @@ _copy_loop:
 
 # ----------------- IO interface -----------------------------------------------
 
+# Prints the String provided in a1 to the stdout.
+#
+# Returns the a0 argument for method chaining.
 .globl IO.out_string
 IO.out_string:
     la t0, tohost_data
@@ -127,13 +131,13 @@ IO.out_string:
     sw t1, 8(t0)   # tohost_data[1] = t1 = 1
 
     # pbuf = address of data to write
-    # 16(a0): address of string start
-    addi t1, a0, 16
+    # 16(a1): address of string start
+    addi t1, a1, 16
     sw t1, 16(t0)  # tohost_data[2] = &content
 
     # len = length of data to write
-    # 12(a0): string length as Int
-    lw t1, 12(a0)  # load address of Int
+    # 12(a1): string length as Int
+    lw t1, 12(a1)  # load address of Int
     lw t1, 12(t1)  # load value of Int
     sw t1, 24(t0)  # tohost_data[3] = length
 
@@ -148,29 +152,31 @@ _IO.out_string.await_write:
     lw t1, 0(t0)                # t1 = fromhost[0]
     beq t1, zero, _IO.out_string.await_write  # while t1 == zero: loop
 
+    # a0 is not touched by the impl, so self will be returned as 
     ret
 
+# Prints the Int provided in a1 to the stdout.
+#
+# Returns the a0 argument for method chaining.
 .globl IO.out_int
 IO.out_int:
-    # TODO: a0 is self for all methods
-
     add t3, sp, 0
     sb zero, 0(t3) # string terminating null char
 
-    lw t0, 12(a0) # t0 = int value
+    lw t0, 12(a1) # t0 = int value
     li t4, 1
-    beqz t0, IO.out_int.print_zero
+    beqz t0, _IO.out_int.print_zero
 
-    bgtz t0, IO.out_int.positive
+    bgtz t0, _IO.out_int.positive
 
     li t4, -1
     neg t0, t0
 
-IO.out_int.positive:   
+_IO.out_int.positive:   
     li t1, 10
 
-IO.out_int.loop:
-    beqz t0, IO.out_int.sign_adj
+_IO.out_int.loop:
+    beqz t0, _IO.out_int.sign_adj
 
     rem t2, t0, t1
     addi t2, t2, 0x30 # convert digit to char
@@ -179,23 +185,23 @@ IO.out_int.loop:
     sb t2, 0(t3) # print digit
 
     div t0, t0, t1
-    j IO.out_int.loop
+    j _IO.out_int.loop
 
-IO.out_int.sign_adj:
-    bgez t4, IO.out_int.print
+_IO.out_int.sign_adj:
+    bgez t4, _IO.out_int.print
 
     li t2, 0x2d 
     addi t3, t3, -1
     sb t2, 0(t3) # print '-'
 
-    j IO.out_int.print
+    j _IO.out_int.print
 
-IO.out_int.print_zero:
+_IO.out_int.print_zero:
     li t2, 0x30
     addi t3, t3, -1
     sb t2, 0(t3) # print '0'
 
-IO.out_int.print:
+_IO.out_int.print:
     sub t2, sp, t3  # length = sp - t3
 
     la t0, tohost_data
@@ -209,11 +215,11 @@ IO.out_int.print:
     sw t1, 8(t0)   # tohost_data[1] = t1 = 1
 
     # pbuf = address of data to write
-    # 16(a0): address of string start
+    # 16(t0): address of string start
     sw t3, 16(t0)  # tohost_data[2] = &content
 
     # len = length of data to write
-    # 12(a0): string length as Int
+    # 12(t0): string length as Int
     sw t2, 24(t0)  # tohost_data[3] = length
 
     # make syscall
@@ -227,10 +233,17 @@ _IO.out_int.await_write:
     lw t1, 0(t0)                # t1 = fromhost[0]
     beq t1, zero, _IO.out_int.await_write  # while t1 == zero: loop
 
-    # TODO: clear the stack
+_IO.out_int.clear_stack:
+    sb zero, 0(t3)
+    beq t3, sp, _IO.out_int.end
+    addi t3, t3, -1
+    j _IO.out_int.clear_stack
 
+_IO.out_int.end:
+    # a0 is not touched by the impl, so self will be returned as 
     ret
 
+# Reads a String from stdin and returns it to a0.
 .globl IO.in_string
 IO.in_string:
     add s2, ra, zero   # store return address; TODO: implement stack discipline
@@ -322,7 +335,7 @@ _pad_with_zeros:
     ret
 
 
-# Reads an Int from stdin.
+# Reads an Int from stdin and returns it to a0.
 #
 # Ignores leading spaces, but nothing else. Ignores all symbols starting from
 # the first non-digit until the first new-line.

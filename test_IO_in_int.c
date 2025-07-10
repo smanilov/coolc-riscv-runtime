@@ -13,8 +13,14 @@ typedef struct {
     char content[256]; // for testing purposes, length is fixed at 256
 } String;
 
-extern Int* IO_in_int();
-extern void IO_out_string(String* x);
+typedef struct {
+    int class_tag;
+    int object_size;
+    void* dispatch_table;
+} IO;
+
+extern Int* IO_in_int(IO*);
+extern void IO_out_string(IO*, String*);
 
 void assign_string_content(String* string, char* content, int length) {
     for (int i = 0; i < length; ++i) {
@@ -60,62 +66,64 @@ void print_string(char* content, int length) {
 
     pad_string_content(&string, length);
 
-    IO_out_string(&string);
+    IO io;
+    IO_out_string(&io, &string);
 }
 
 int main() {
-    Int* x = IO_in_int();
+    IO io;
+    Int* x = IO_in_int(&io);
     print_string(x->value == 0 ? "1: PASSED\n" : "1: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 4 ? "2: PASSED\n" : "2: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 0 ? "3: PASSED\n" : "3: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 4 ? "4: PASSED\n" : "4: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 4 ? "5: PASSED\n" : "5: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 4 ? "6: PASSED\n" : "6: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 4 ? "7: PASSED\n" : "7: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 44 ? "8: PASSED\n" : "8: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == -4 ? "9: PASSED\n" : "9: FAILED\n", 10);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 0 ? "10: PASSED\n" : "10: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == -4 ? "11: PASSED\n" : "11: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == -44 ? "12: PASSED\n" : "12: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == -44 ? "13: PASSED\n" : "13: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 0 ? "14: PASSED\n" : "14: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 3 ? "15: PASSED\n" : "15: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == -3 ? "16: PASSED\n" : "16: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 0 ? "17: PASSED\n" : "17: FAILED\n", 11);
 
-    x = IO_in_int();
+    x = IO_in_int(&io);
     print_string(x->value == 0 ? "18: PASSED\n" : "18: FAILED\n", 11);
 
     if (x->class_tag == 2 && x->object_size == 4 && x->dispatch_table == 0) {
