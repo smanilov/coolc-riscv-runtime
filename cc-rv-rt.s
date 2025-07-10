@@ -479,8 +479,11 @@ _IO.in_int.state2:
 
 # ----------------- String interface -------------------------------------------
 
+# Returns in a0 the Int object, that represents the length of the String passed
+# as a0.
+.globl String.length
 String.length:
-    # TODO:
+    lw a0, 12(a0) # load address of Int
     ret
 
 String.concat:
