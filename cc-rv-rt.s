@@ -36,15 +36,27 @@ IO_init:
 Int_init:
     ret
 
-# Initializes an object of class Int passed in $a0. In practice, a no-op, since
+# Initializes an object of class Bool passed in $a0. In practice, a no-op, since
 # Bool_protObj already has the first (and only) attribute set to 0.
 .globl Bool_init
 Bool_init:
     ret
 
+# Initializes an object of class String passed in $a0. Allocates a new Int to
+# store the length of the String and links the length pointer to it. Returns the
+# initialized String in a0.
 .globl String_init
 String_init:
-    # TODO:
+    add s2, ra, zero   # store return address; TODO: implement stack discipline
+    add s1, a0, zero   # store String argument
+
+    la a0, Int_protObj # copy Int prototype first
+    jal Object.copy    # ...
+
+    sw a0, 12(s1)      # store new Int as length; value of Int is 0 by default
+
+    add a0, s1, zero   # store String argument
+    add ra, s2, zero   # restore return address
     ret
 
 # ----------------- Object interface -------------------------------------------
@@ -450,13 +462,7 @@ _IO.in_int.state2:
 
 # ----------------- Int interface ----------------------------------------------
 
-# custom interface / helper functions
-
-# Reads the value of an Int object passed in $a0 and returns it in $a0.
-# not .globl; TODO: maybe it should be?
-Int.read_value:
-    lw a0, 12(a0)
-    ret
+# none
 
 # ----------------- String interface -------------------------------------------
 
