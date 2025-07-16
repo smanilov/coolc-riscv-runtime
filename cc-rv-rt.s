@@ -4,8 +4,38 @@
 .globl _start
 _start:
     la gp, heap_start
+    li sp, 0xfffffffc
 
-    call main
+    # copy Main prototype
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, Main_protObj 
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    jal Object.copy
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+
+    call Main_init       # init Main object
+
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+
+    call Main.main
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
 
 # Epilogue of the runtime
 _end:
@@ -17,48 +47,6 @@ _end:
 _inf_loop:
     j _inf_loop
 
-
-# ------------- Implementation of predefined classes ---------------------------
-
-# ----------------- Init methods -----------------------------------------------
-
-.globl Object_init
-Object_init:
-    ret
-
-.globl IO_init
-IO_init:
-    ret
-
-# Initializes an object of class Int passed in $a0. In practice, a no-op, since
-# Int_protObj already has the first (and only) attribute set to 0.
-.globl Int_init
-Int_init:
-    ret
-
-# Initializes an object of class Bool passed in $a0. In practice, a no-op, since
-# Bool_protObj already has the first (and only) attribute set to 0.
-.globl Bool_init
-Bool_init:
-    ret
-
-# Initializes an object of class String passed in $a0. Allocates a new Int to
-# store the length of the String and links the length pointer to it. Returns the
-# initialized String in a0.
-.globl String_init
-String_init:
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
-    add s1, a0, zero   # store String argument
-
-    la a0, Int_protObj # copy Int prototype first
-    jal Object.copy    # ...
-
-    sw a0, 12(s1)      # store new Int as length; value of Int is 0 by default
-
-    add a0, s1, zero   # store String argument
-    add ra, s2, zero   # restore return address
-    ret
-
 # ----------------- Object interface -------------------------------------------
 
 .globl Object.abort
@@ -66,8 +54,25 @@ Object.abort:
     # don't save ra before call, since this method does not return
 
     # print abort message
-    la a1, _Object.abort.message
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    # no need, since it's not modified
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _Object.abort.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+
     jal IO.out_string
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+    # no need, since it's not used
 
     # The next three lines tell Spike to stop the simulation.
     la t0, tohost
@@ -87,16 +92,25 @@ Object.type_name:
 
     ret
 
-# Copies the `from_object` passed as $a0.
+# Copies the `from_object` passed as a0.
 #
 .globl Object.copy
 Object.copy:
+    # stack discipline
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
     add t1, a0, zero     # t1 = &from_object
     lw t0, 4(a0)         # t0 = object size = words_left
 
     li t2, -1            # store GC tag first (before &to_object)
     sw t2, 0(gp)         # ...
 
+    # TODO: rather than using gp directly, implement Mem functions
     addi gp, gp, 4       # move "to_object" ptr
 
     add a0, gp, zero     # result = &to_object
@@ -110,6 +124,17 @@ _Object.copy_loop:
     addi t0, t0, -1      # --words_left
     bnez t0, _Object.copy_loop
 
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
 
 # ----------------- IO interface -----------------------------------------------
@@ -119,6 +144,16 @@ _Object.copy_loop:
 # Returns the a0 argument for method chaining.
 .globl IO.out_string
 IO.out_string:
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    lw t2, 4(fp) # load the argument in t2
+
     la t0, tohost_data
     # 64 = sys_write
     li t1, 64
@@ -130,13 +165,13 @@ IO.out_string:
     sw t1, 8(t0)   # tohost_data[1] = t1 = 1
 
     # pbuf = address of data to write
-    # 16(a1): address of string start
-    addi t1, a1, 16
+    # 16(fn-arg): address of string start
+    addi t1, t2, 16
     sw t1, 16(t0)  # tohost_data[2] = &content
 
     # len = length of data to write
-    # 12(a1): string length as Int
-    lw t1, 12(a1)  # load address of Int
+    # 12(fn-arg): string length as Int
+    lw t1, 12(t2)  # load address of Int
     lw t1, 12(t1)  # load value of Int
     sw t1, 24(t0)  # tohost_data[3] = length
 
@@ -151,6 +186,16 @@ _IO.out_string.await_write:
     lw t1, 0(t0)                # t1 = fromhost[0]
     beq t1, zero, _IO.out_string.await_write  # while t1 == zero: loop
 
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 12
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
     # a0 is not touched by the impl, so self will be returned as 
     ret
 
@@ -245,14 +290,61 @@ _IO.out_int.end:
 # Reads a String from stdin and returns it to a0.
 .globl IO.in_string
 IO.in_string:
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
 
-    la a0, Int_protObj # copy Int prototype first, to store the length
-    jal Object.copy    # ...
-    add s1, a0, zero   # save address of Int before next fn call
+    j _inf_loop
 
-    la a0, String_protObj # copy String prototype
-    jal Object.copy       # ...
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # copy Int prototype first, to store the length
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, Int_protObj 
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    jal Object.copy
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+    # save previous value of s1 first
+    sw s1, 0(sp)
+    addi sp, sp, -4
+    # save address of Int before next fn call
+    add s1, a0, zero   
+
+    # copy String prototype
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, String_protObj 
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    jal Object.copy
+
+    # stack discipline:
+    # callee: restores sp so that fp is popped
+    # next word on the stack: s1
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
     sw s1, 12(a0)         # store address of Int
 
     addi t2, a0, 16
@@ -323,13 +415,25 @@ _IO.in_string.pad_with_zeros:
     addi t1, t1, 4 # add 4 words for tag, size, disptab, and length
     sw t1, 4(a0)
 
+    # TODO: use Mem alloc or something for String
     # adjust gp; initially, Object.copy allocated 5 words for the string; the
     # real size is computed in t1
     addi t1, t1, -5 # t1 = remaining words
     sll t1, t1, 2   # t1 = remaining bytes
     add gp, gp, t1  # gp += remaining bytes
 
-    add ra, s2, zero # restore return address
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    addi sp, sp, 4
+    lw s1, 0(sp)
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
 
     ret
 
@@ -356,11 +460,31 @@ _IO.in_string.pad_with_zeros:
 # - [space]--44x\n is read as 0
 .globl IO.in_int
 IO.in_int:
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
 
-    la a0, Int_protObj # copy Int prototype
-    jal Object.copy    # ...
+    # copy Int prototype
 
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, Int_protObj 
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    jal Object.copy
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
     addi t2, a0, 8     # use dispatch_table as scratch memory, because YOLO
                        # (also, because there is no dispatch table for Int)
 
@@ -469,7 +593,17 @@ _IO.in_int.state2:
 
     sw zero, 8(a0) # reset dispatch_table to 0
 
-    add ra, s2, zero # restore return address
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
 
 # ----------------- Int interface ----------------------------------------------
@@ -489,8 +623,13 @@ String.length:
 # String (passed in a0) and the method argument (passed in a1).
 .globl String.concat
 String.concat:
-    # TODO: save saved registers before usage
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
 
     add s3, a0, zero   # store self in s3
     add s4, a1, zero   # store arg in s4
@@ -562,22 +701,42 @@ _String.concat.pad_with_zeros:
     addi t1, t1, -5 # t1 = remaining words
     sll t1, t1, 2   # t1 = remaining bytes
     add gp, gp, t1  # gp += remaining bytes
+    # TODO: use Mem alloc or sth; (infinite buffer :sparkle:)
 
-    add ra, s2, zero   # restore return address
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
     ret
 
 # Returns in a0 the String object, that represents the substring of the String passed
-# as a0 starting from (0-indexed) index `from` (in a1; an Int) and length
-# `length` (in a2; an Int).
+# as a0 starting from (0-indexed) index `from` (in fn-arg1; an Int) and length
+# `length` (in fn-arg2; an Int).
 #
 # Execution terminates if the requested substring is out of range and an error
 # message is printed.
 .globl String.substr
 String.substr:
-    lw t0, 12(a1)  # t0 = from->value
+    # stack discipline
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    lw t0, 4(fp)   # t0 = from (fn-arg1)
+    lw t0, 12(t0)  # t0 = from->value
     bltz t0, _String.substr.out_of_range
 
-    lw t1, 12(a2)  # t1 = length->value
+    lw t1, 8(fp)   # t1 = length (fn-arg2)
+    lw t1, 12(t1)  # t1 = length->value
     bltz t1, _String.substr.out_of_range
 
     lw t2, 12(a0)
@@ -586,21 +745,53 @@ String.substr:
     blt t2, t3, _String.substr.out_of_range
 
     # indexes are good; create a new String and copy content
-    # TODO: save saved registers before usage
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
+    sw s1, 0(sp)
+    addi sp, sp, -4
+    add s1, a0, zero   # store self in s1
 
-    add s3, a0, zero   # store self in s3
+    # copy Int prototype first, to store the length
 
-    la a0, Int_protObj # copy Int prototype first, to store the length
-    jal Object.copy    # ...
-    add s1, a0, zero   # save address of Int before next fn call
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, Int_protObj
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
 
-    la a0, String_protObj # copy String prototype
+    jal Object.copy
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+    sw s2, 0(sp)
+    addi sp, sp, -4
+    add s2, a0, zero   # save address of Int before next fn call
+
+    # copy String prototype
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, String_protObj 
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
     jal Object.copy       # ...
-    sw s1, 12(a0)         # store address of Int
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+
+    sw s2, 12(a0)      # store address of Int
 
     addi t2, a0, 16    # t2 = &new_content
-    addi t4, s3, 16    # t4 = &self->content
+    addi t4, s1, 16    # t4 = &self->content
     lw t0, 12(a1)      # t0 = from->value
 
     add t4, t4, t0    # t4 = &self->content[from->value]
@@ -644,14 +835,46 @@ _String.substr.pad_with_zeros:
     addi t1, t1, -5 # t1 = remaining words
     sll t1, t1, 2   # t1 = remaining bytes
     add gp, gp, t1  # gp += remaining bytes
+    # TODO: Mem alloc
 
-    add ra, s2, zero   # restore return address
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    addi sp, sp, 4
+    lw s2, 0(sp)
+    addi sp, sp, 4
+    lw s1, 0(sp)
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 16
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
 
 _String.substr.out_of_range:
     # print abort message
-    la a1, _String.substr.out_of_range.message
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    # no need, since it's not modified
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _String.substr.out_of_range.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+
     jal IO.out_string
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+    # no need, since it's not used
 
     # The next three lines tell Spike to stop the simulation.
     la t0, tohost
@@ -664,6 +887,40 @@ _String.substr.out_of_range:
 # ----------------- Bool interface ---------------------------------------------
 
 # none
+
+# ----------------- Init methods -----------------------------------------------
+
+Object_init:
+    ret
+
+IO_init:
+    ret
+
+# Initializes an object of class Int passed in $a0. In practice, a no-op, since
+# Int_protObj already has the first (and only) attribute set to 0.
+Int_init:
+    ret
+
+# Initializes an object of class Bool passed in $a0. In practice, a no-op, since
+# Bool_protObj already has the first (and only) attribute set to 0.
+Bool_init:
+    ret
+
+# Initializes an object of class String passed in $a0. Allocates a new Int to
+# store the length of the String and links the length pointer to it. Returns the
+# initialized String in a0.
+String_init:
+    add s2, ra, zero   # store return address; TODO: implement stack discipline
+    add s1, a0, zero   # store String argument
+
+    la a0, Int_protObj # copy Int prototype first
+    call Object.copy    # ...
+
+    sw a0, 12(s1)      # store new Int as length; value of Int is 0 by default
+
+    add a0, s1, zero   # store String argument
+    add ra, s2, zero   # restore return address
+    ret
 
 # ------------- End of implementation of predefined classes --------------------
 
@@ -686,161 +943,8 @@ tohost_data:
 fromhost_data:
     .dword 0, 0, 0, 0, 0, 0, 0, 0
 
-# ------------- Name table of classes ------------------------------------------
-# TODO: temporary; to be generated by codegen, instead of hardcoding it here
-
-class_nameTab:
-    .word Object_className
-    .word IO_className
-    .word Int_className
-    .word Bool_className
-    .word String_className
-
-
-    .word -1 # GC tag
-Object_classNameLength:
-    .word 2  # class tag;       2 for Int
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Int has no methods
-    .word 6  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-Object_className:
-    .word 4  # class tag;       4 for String
-    .word 6  # object size;     6 words (24 bytes); GC tag not included
-    .word String_dispTab
-    .word Object_classNameLength  # first attribute; pointer length
-    .string "Object"
-    .byte 0
-
-
-    .word -1 # GC tag
-IO_classNameLength:
-    .word 2  # class tag;       2 for Int
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Int has no methods
-    .word 2  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-IO_className:
-    .word 4  # class tag;       4 for String
-    .word 5  # object size;     5 words (20 bytes); GC tag not included
-    .word String_dispTab
-    .word IO_classNameLength  # first attribute; pointer length
-    .string "IO" # includes terminating null char
-    .byte 0
-
-
-    .word -1 # GC tag
-Int_classNameLength:
-    .word 2  # class tag;       2 for Int
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Int has no methods
-    .word 3  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-Int_className:
-    .word 4  # class tag;       4 for String
-    .word 5  # object size;     5 words (20 bytes); GC tag not included
-    .word String_dispTab
-    .word Int_classNameLength  # first attribute; pointer length
-    .string "Int" # includes terminating null char
-
-
-    .word -1 # GC tag
-Bool_classNameLength:
-    .word 2  # class tag;       2 for Int
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Int has no methods
-    .word 4  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-Bool_className:
-    .word 4  # class tag;       4 for String
-    .word 6  # object size;     6 words (24 bytes); GC tag not included
-    .word String_dispTab
-    .word Bool_classNameLength  # first attribute; pointer length
-    .string "Bool" # includes terminating null char
-    .byte 0
-    .byte 0
-    .byte 0
-
-
-    .word -1 # GC tag
-String_classNameLength:
-    .word 2  # class tag;       2 for Int
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Int has no methods
-    .word 6  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-String_className:
-    .word 4  # class tag;       4 for String
-    .word 6  # object size;     6 words (24 bytes); GC tag not included
-    .word String_dispTab
-    .word String_classNameLength  # first attribute; pointer length
-    .string "String" # includes terminating null char
-    .byte 0
-
-# ------------- Prototype objects ----------------------------------------------
-
-    .p2align 2
-    .word -1 # GC tag
-Object_protObj:
-    .word 0  # class tag;       0 for Object
-    .word 3  # object size;     3 words (12 bytes); GC tag not included
-    .word Object_dispTab
-    .word 0  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-IO_protObj:
-    .word 2  # class tag;       2 for Int
-    .word 3  # object size;     3 words (12 bytes); GC tag not included
-    .word IO_dispTab
-
-    .word -1 # GC tag
-Int_protObj:
-    .word 2  # class tag;       2 for Int
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Int has no methods
-    .word 0  # first attribute; value of Int; default is 0
-
-    .word -1 # GC tag
-Bool_protObj:
-    .word 3  # class tag;       3 for Bool
-    .word 4  # object size;     4 words (16 bytes); GC tag not included
-    .word 0  # dispatch table;  Bool has no methods
-    .word 0  # first attribute; value of Bool; default is 0; means false
-
-    .word -1 # GC tag
-String_protObj:
-    .word 4  # class tag;       4 for String
-    .word 5  # object size;     5 words (20 bytes); GC tag not included
-    .word String_dispTab
-    .word 0  # first attribute; pointer to Int that is the length of the String
-    .word 0  # second attribute; terminating 0 character, since "" is default
-
-# ------------- Dispatch tables ------------------------------------------------
-
-Object_dispTab:
-    .word Object.abort
-    .word Object.type_name
-    .word Object.copy
-
-IO_dispTab:
-    .word IO.out_string
-    .word IO.in_string
-    .word IO.out_int
-    .word IO.in_int
-
-String_dispTab:
-    .word String.length
-    .word String.concat
-    .word String.substr
 
 # ------------- Class object table ---------------------------------------------
-# TODO: temporary; to be generated by codegen, instead of hardcoding it here
-
 class_objTab:
     .word Object_protObj
     .word Object_init
@@ -852,6 +956,25 @@ class_objTab:
     .word Bool_init
     .word String_protObj
     .word String_init
+    .word Main_protObj
+    .word Main_init
+
+    .word -1 # GC tag
+_string1.length:
+    .word 2  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 13  # first attribute; value of Int
+
+    .word -1 # GC tag
+_string1.content:
+    .word 4  # class tag;       4 for String
+    .word 17  # object size;    8 words (16 + 16 bytes); GC tag not included
+    .word String_dispTab
+    .word _string1.length # first attribute; pointer length
+    .string "hello world!\n" # includes terminating null char
+    .byte 0
+    .byte 0
 
 # ------------- System messages ------------------------------------------------
 
