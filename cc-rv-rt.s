@@ -3,7 +3,10 @@
 # Global _start symbol: the entry point of the runtime.
 .globl _start
 _start:
+    # Configure gp and sp
+    # gp is the first free word in memory (RAM)
     la gp, heap_start
+    # sp is the last addressable word in memory
     li sp, 0xfffffffc
 
     # copy Main prototype
@@ -22,20 +25,46 @@ _start:
 
     # stack discipline:
     # caller:
+    # - read return value from a0
+    # no need, just forward (see next call)
+
+    # initialize Main object
+
+    # stack discipline:
+    # caller:
     # - self object is passed in a0
-
-    call Main_init       # init Main object
-
+    # carried over from previous call
     # - control link is pushed first on the stack
     sw fp, 0(sp)
     addi sp, sp, -4
     # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    call Main_init       # init Main object
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+    # no need, just forward (see next call)
+
+    # call user-defined main function (entry point)
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    # carried over from previous call
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
 
     call Main.main
 
     # stack discipline:
     # caller:
     # - read return value from a0
+    # unused
 
 # Epilogue of the runtime
 _end:
@@ -874,7 +903,7 @@ _String.substr.out_of_range:
     # stack discipline:
     # caller:
     # - read return value from a0
-    # no need, since it's not used
+    # unused
 
     # The next three lines tell Spike to stop the simulation.
     la t0, tohost
@@ -887,40 +916,6 @@ _String.substr.out_of_range:
 # ----------------- Bool interface ---------------------------------------------
 
 # none
-
-# ----------------- Init methods -----------------------------------------------
-
-Object_init:
-    ret
-
-IO_init:
-    ret
-
-# Initializes an object of class Int passed in $a0. In practice, a no-op, since
-# Int_protObj already has the first (and only) attribute set to 0.
-Int_init:
-    ret
-
-# Initializes an object of class Bool passed in $a0. In practice, a no-op, since
-# Bool_protObj already has the first (and only) attribute set to 0.
-Bool_init:
-    ret
-
-# Initializes an object of class String passed in $a0. Allocates a new Int to
-# store the length of the String and links the length pointer to it. Returns the
-# initialized String in a0.
-String_init:
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
-    add s1, a0, zero   # store String argument
-
-    la a0, Int_protObj # copy Int prototype first
-    call Object.copy    # ...
-
-    sw a0, 12(s1)      # store new Int as length; value of Int is 0 by default
-
-    add a0, s1, zero   # store String argument
-    add ra, s2, zero   # restore return address
-    ret
 
 # ------------- End of implementation of predefined classes --------------------
 

@@ -7,7 +7,7 @@ _inf_loop:
 Main.main:
     # stack discipline:
     # caller:
-    # - self object is passed in $a0
+    # - self object is passed in a0
     # - control link is pushed first on the stack
     # - arguments are pushed in reverse order on the stack
     # callee:
@@ -24,8 +24,8 @@ Main.main:
 
     # stack discipline:
     # caller:
-    # - self object is passed in $a0
-    # self already is $a0, so no-op
+    # - self object is passed in a0
+    # self already is a0, so no-op
     # - control link is pushed first on the stack
     sw fp, 0(sp)
     addi sp, sp, -4
@@ -47,7 +47,7 @@ Main.main:
     lw fp, 0(sp)
     # - result is stored in a0
     # caller:
-    # - read return value from $a0
+    # - read return value from a0
     ret
 
 .data
@@ -239,41 +239,160 @@ Main_dispTab:
 
 # ----------------- Init methods -----------------------------------------------
 
+.globl Object_init
 Object_init:
+    # Most of the `init` functions of the default types are no-ops, so the
+    # implementation is the same.
+
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+    # before using saved registers (s1 -- s11), push them on the stack
+
+    # no op
+
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
 
+
+.globl IO_init
 IO_init:
+    # Most of the `init` functions of the default types are no-ops, so the
+    # implementation is the same.
+
+    add fp, sp, 0
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # no op
+
+    lw ra, 0(fp)
+    addi sp, sp, 8
+    lw fp, 0(sp)
     ret
 
-# Initializes an object of class Int passed in $a0. In practice, a no-op, since
+
+# Initializes an object of class Int passed in a0. In practice, a no-op, since
 # Int_protObj already has the first (and only) attribute set to 0.
+.globl Int_init
 Int_init:
+    # Most of the `init` functions of the default types are no-ops, so the
+    # implementation is the same.
+
+    add fp, sp, 0
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # no op
+
+    lw ra, 0(fp)
+    addi sp, sp, 8
+    lw fp, 0(sp)
     ret
 
-# Initializes an object of class Bool passed in $a0. In practice, a no-op, since
+
+# Initializes an object of class Bool passed in a0. In practice, a no-op, since
 # Bool_protObj already has the first (and only) attribute set to 0.
+.globl Bool_init
 Bool_init:
+    # Most of the `init` functions of the default types are no-ops, so the
+    # implementation is the same.
+
+    add fp, sp, 0
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # no op
+
+    lw ra, 0(fp)
+    addi sp, sp, 8
+    lw fp, 0(sp)
     ret
 
-# Initializes an object of class String passed in $a0. Allocates a new Int to
+
+# Initializes an object of class String passed in a0. Allocates a new Int to
 # store the length of the String and links the length pointer to it. Returns the
 # initialized String in a0.
+#
+# Used in `new String`, but useless, in general, since it creates an empty
+# string. String only has methods `length`, `concat`, and `substr`.
+.globl String_init
 String_init:
-    add s2, ra, zero   # store return address; TODO: implement stack discipline
-    add s1, a0, zero   # store String argument
+    # In addition to the default behavior, copies the Int prototype object and
+    # uses that as the length, rather than the prototype object directly. No
+    # practical reason for this, other than simulating the default init logic for
+    # an object with attributes.
 
-    la a0, Int_protObj # copy Int prototype first
-    call Object.copy    # ...
+    add fp, sp, 0
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # store String argument
+    sw s1, 0(sp)
+    addi sp, sp, -4
+    add s1, a0, zero
+
+    # copy Int prototype first
+
+    la a0, Int_protObj
+    sw fp, 0(sp)
+    addi sp, sp, -4
+
+    call Object.copy
 
     sw a0, 12(s1)      # store new Int as length; value of Int is 0 by default
 
-    add a0, s1, zero   # store String argument
-    add ra, s2, zero   # restore return address
+    add a0, s1, zero   # restore String argument
+
+    addi sp, sp, 4
+    lw s1, 0(sp)
+    lw ra, 0(fp)
+    addi sp, sp, 8
+    lw fp, 0(sp)
+
     ret
+
 
 .globl Main_init
 Main_init:
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+    # before using saved registers (s1 -- s11), push them on the stack
+
+    # no op
+
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
+
 
 # ------------- Class object table ---------------------------------------------
 class_objTab:
