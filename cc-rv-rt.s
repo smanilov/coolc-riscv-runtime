@@ -5,7 +5,7 @@
 _start:
     # Configure gp and sp
     # gp is the first free word in memory (RAM)
-    la gp, heap_start
+    la gp, __heap_start
     # sp is the last addressable word in memory
     li sp, 0xfffffffc
 
@@ -592,22 +592,22 @@ _IO.in_int.read_char:
     li t1, 1
     sw t1, 24(t0)
 
-    # TODO: can 0 actually be read from stdin?
-    # store 0, so that beqz can be used for _IO.in_int.await_data
-    sb zero, 0(t2)
-
     # make syscall
     la t0, tohost
     la t1, tohost_data
     sw t1, 0(t0)
 
-    li t1, 0
+    la t6, fromhost
+    sw zero, 0(t6)              # fromhost[0] = 0
+
     # loop until byte is read; this is necessary, since reading does not block:
     # the byte would just "magically" appear, when the simulator sets it
 _IO.in_int.await_data:
+    lw t1, 0(t6)              # t1 = fromhost[0]
+    beqz t1, _IO.in_int.await_data
+
 	# Load read byte in t1; Ctrl-C Spike and write `reg 0` to verify value
     lb t1, 0(t2)
-    beqz t1, _IO.in_int.await_data
 
     bne t3, zero, _IO.in_int.state_maybe1
 
@@ -671,13 +671,19 @@ _IO.in_int.state2:
     # stack discipline:
     # callee:
     # - restore used saved registers (s1 -- s11) from the stack
-    # - ra is restored from first word on activation frame
-    lw ra, 0(fp)
-    # - ra, arguments, and control link are popped from the stack
-    addi sp, sp, 8
-    # - fp is restored from control link
+    # - ra is popped off the stack
+
+    addi sp, sp, 4
+    lw ra, 0(sp)
+
+    # - arguments are popped off the stack
+    # no arguments
+
+    # - control link is popped from the stack
+    addi sp, sp, 4
     lw fp, 0(sp)
     # - result is stored in a0
+
 
     ret
 
@@ -1115,12 +1121,8 @@ _String.substr.out_of_range.message_length:
     .word -1 # GC tag
 _String.substr.out_of_range.message:
     .word 4  # class tag;       4 for String
-    .word 19  # object size;     17 words (16 + 60 bytes); GC tag not included
+    .word 19  # object size;     19 words (16 + 60 bytes); GC tag not included
     .word String_dispTab
     .word _String.substr.out_of_range.message_length # first attribute; pointer length
     .string "Call to String.substr() requested a substring out of range\n" # includes terminating null char
     # no padding needed, since length divides by 4
-
-# TODO: generate from compiler or add .static section and put this alone in
-# .data
-heap_start:

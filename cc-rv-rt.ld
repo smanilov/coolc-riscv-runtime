@@ -12,5 +12,9 @@ MEMORY {
 SECTIONS {
     .text : { *(.text); *(.text.*) } >text
     .data : { *(.data); *(.data.*) } >data
+
+    . = ALIGN(4);
+    __heap_start = .;
+
     /DISCARD/ : { *(.comment); *(.riscv.attributes) }
 }
