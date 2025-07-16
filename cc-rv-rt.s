@@ -80,7 +80,13 @@ _inf_loop:
 
 .globl Object.abort
 Object.abort:
-    # don't save ra before call, since this method does not return
+    # stack discipline
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
 
     # print abort message
 
@@ -113,11 +119,30 @@ Object.abort:
 
 .globl Object.type_name
 Object.type_name:
+    # stack discipline
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
     lw a0, 0(a0)          # t0 = class tag
     sll a0, a0, 2         # offset = class tag x 4
     la t0, class_nameTab  # t0 = class_nameTab
     add a0, t0, a0        # a0 = class_nameTab + offset = &X_className
     lw a0, 0(a0)          # a0 = X_className
+
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
 
     ret
 
@@ -168,7 +193,7 @@ _Object.copy_loop:
 
 # ----------------- IO interface -----------------------------------------------
 
-# Prints the String provided in a1 to the stdout.
+# Prints the String provided in fn-arg1 to the stdout.
 #
 # Returns the a0 argument for method chaining.
 .globl IO.out_string
@@ -228,15 +253,27 @@ _IO.out_string.await_write:
     # a0 is not touched by the impl, so self will be returned as 
     ret
 
-# Prints the Int provided in a1 to the stdout.
+
+# Prints the Int provided in fn-arg1 to the stdout.
 #
 # Returns the a0 argument for method chaining.
 .globl IO.out_int
 IO.out_int:
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # exploit the fact that the stack pointer is growing backwards and store the
+    # terminating null char first
     add t3, sp, 0
     sb zero, 0(t3) # string terminating null char
 
-    lw t0, 12(a1) # t0 = int value
+    lw t0, 4(fp)  # t0 = fn-arg1
+    lw t0, 12(t0) # t0 = fn-arg1->value
     li t4, 1
     beqz t0, _IO.out_int.print_zero
 
@@ -306,6 +343,7 @@ _IO.out_int.await_write:
     lw t1, 0(t0)                # t1 = fromhost[0]
     beq t1, zero, _IO.out_int.await_write  # while t1 == zero: loop
 
+    # not strictly needed, but improves sanity
 _IO.out_int.clear_stack:
     sb zero, 0(t3)
     beq t3, sp, _IO.out_int.end
@@ -313,15 +351,23 @@ _IO.out_int.clear_stack:
     j _IO.out_int.clear_stack
 
 _IO.out_int.end:
-    # a0 is not touched by the impl, so self will be returned as 
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 12
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
+
 
 # Reads a String from stdin and returns it to a0.
 .globl IO.in_string
 IO.in_string:
-
-    j _inf_loop
-
     # stack discipline:
     # callee:
     # - activation frame starts at the stack pointer
@@ -645,11 +691,32 @@ _IO.in_int.state2:
 # as a0.
 .globl String.length
 String.length:
+    # stack discipline:
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
     lw a0, 12(a0) # load address of Int
+
+    # stack discipline:
+    # callee:
+    # - restore used saved registers (s1 -- s11) from the stack
+    # - ra is restored from first word on activation frame
+    lw ra, 0(fp)
+    # - ra, arguments, and control link are popped from the stack
+    addi sp, sp, 8
+    # - fp is restored from control link
+    lw fp, 0(sp)
+    # - result is stored in a0
+
     ret
 
+
 # Returns in a0 a new String object, that is the concatenation of the self
-# String (passed in a0) and the method argument (passed in a1).
+# String (passed in a0) and the method argument (passed in fn-arg1).
 .globl String.concat
 String.concat:
     # stack discipline:
@@ -660,21 +727,56 @@ String.concat:
     sw ra, 0(sp)
     addi sp, sp, -4
 
-    add s3, a0, zero   # store self in s3
-    add s4, a1, zero   # store arg in s4
+    sw s1, 0(sp)
+    addi sp, sp, -4
+    add s1, a0, zero   # store self in s1
 
-    la a0, Int_protObj # copy Int prototype first, to store the length
-    jal Object.copy    # ...
-    add s1, a0, zero   # save address of Int before next fn call
+    # copy Int prototype first, to store the length
 
-    la a0, String_protObj # copy String prototype
-    jal Object.copy       # ...
-    sw s1, 12(a0)         # store address of Int
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, Int_protObj
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    jal Object.copy
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+
+    sw s2, 0(sp)
+    addi sp, sp, -4
+    add s2, a0, zero   # save address of Int before next fn call
+
+    # copy String prototype
+
+    # stack discipline:
+    # caller:
+    # - self object is passed in a0
+    la a0, String_protObj
+    # - control link is pushed first on the stack
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    # no arguments
+
+    jal Object.copy
+
+    # stack discipline:
+    # caller:
+    # - read return value from a0
+
+    sw s2, 12(a0)         # store address of Int
 
     addi t2, a0, 16    # t2 = &new_content
-    addi t4, s3, 16    # t4 = &self->content
+    addi t4, s1, 16    # t4 = &self->content
 
-    lw t3, 12(s3)      # t3 = &self->length
+    lw t3, 12(s1)      # t3 = &self->length
     lw t3, 12(t3)      # t3 = self->length->value
 
 _String.concat.copy_first:
@@ -689,9 +791,12 @@ _String.concat.copy_first:
 
 _String.concat.copy_second:
 
-    lw t3, 12(s4)      # t3 = &arg->length
+    lw t3, 4(fp)       # t3 = fn-arg1
+    lw t3, 12(t3)      # t3 = &arg->length
     lw t3, 12(t3)      # t3 = arg->length->value
-    addi t4, s4, 16    # t4 = &arg->content
+
+    lw t4, 4(fp)       # t4 = fn-arg1
+    addi t4, t4, 16    # t4 = &arg->content
 
 _String.concat.copy_second_loop:
     beqz t3, _String.concat.compute_length
@@ -735,14 +840,20 @@ _String.concat.pad_with_zeros:
     # stack discipline:
     # callee:
     # - restore used saved registers (s1 -- s11) from the stack
+    addi sp, sp, 4
+    lw s2, 0(sp)
+    addi sp, sp, 4
+    lw s1, 0(sp)
     # - ra is restored from first word on activation frame
     lw ra, 0(fp)
     # - ra, arguments, and control link are popped from the stack
-    addi sp, sp, 8
+    addi sp, sp, 12
     # - fp is restored from control link
     lw fp, 0(sp)
     # - result is stored in a0
+
     ret
+
 
 # Returns in a0 the String object, that represents the substring of the String passed
 # as a0 starting from (0-indexed) index `from` (in fn-arg1; an Int) and length
@@ -821,11 +932,13 @@ String.substr:
 
     addi t2, a0, 16    # t2 = &new_content
     addi t4, s1, 16    # t4 = &self->content
-    lw t0, 12(a1)      # t0 = from->value
+    lw t0, 4(fp)       # t0 = from (fn-arg1)
+    lw t0, 12(t0)      # t0 = from->value
 
     add t4, t4, t0    # t4 = &self->content[from->value]
 
-    lw t3, 12(a2)      # t3 = length->value
+    lw t3, 8(fp)       # t3 = length (fn-arg2)
+    lw t3, 12(t3)      # t3 = length->value
 
 _String.substr.copy:
     beqz t3, _String.substr.store_length
@@ -882,6 +995,7 @@ _String.substr.pad_with_zeros:
     # - result is stored in a0
 
     ret
+    # function not over yet...
 
 _String.substr.out_of_range:
     # print abort message
@@ -912,6 +1026,7 @@ _String.substr.out_of_range:
 
     # an infinite loop for good measure
     j _inf_loop
+
 
 # ----------------- Bool interface ---------------------------------------------
 
