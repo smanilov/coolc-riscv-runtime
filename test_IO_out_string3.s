@@ -30,11 +30,15 @@ Main.main:
     sw fp, 0(sp)
     addi sp, sp, -4
     # - arguments are pushed in reverse order on the stack
-    la t0, _string1.content
+    la t0, _string1
     sw t0, 0(sp)
     addi sp, sp, -4
 
     jal IO.out_string
+
+    # caller:
+    # - read return value from a0
+    # no op
 
     # stack discipline:
     # callee:
@@ -414,14 +418,15 @@ _string1.length:
     .word 2  # class tag;       2 for Int
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
-    .word 13  # first attribute; value of Int
+    .word 64  # first attribute; value of Int
 
     .word -1 # GC tag
-_string1.content:
+_string1:
     .word 4  # class tag;       4 for String
-    .word 17  # object size;    8 words (16 + 16 bytes); GC tag not included
+    .word 21  # object size;     21 words (16 + 68 bytes); GC tag not included
     .word String_dispTab
     .word _string1.length # first attribute; pointer length
-    .string "hello world!\n" # includes terminating null char
+    .string "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabc\n" # includes terminating null char
+    .byte 0
     .byte 0
     .byte 0
