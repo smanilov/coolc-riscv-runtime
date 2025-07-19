@@ -22,7 +22,7 @@ for test_source in $(ls tests/test_*.s); do
         exit_code=$?
         if [ $exit_code -eq 124 ]; then
             echo "Test ${testname} TIMED OUT"
-        elif ! diff tests/${testname}.expected.out tests/${testname}.out; then
+        elif ! diff -a tests/${testname}.expected.out tests/${testname}.out; then
             echo "Test ${testname} FAILED"
         else
             echo "Test ${testname} PASSED"

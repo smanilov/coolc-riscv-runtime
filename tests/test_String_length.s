@@ -21,38 +21,24 @@ Main.main:
     # - fp points to sp
     # - sp points to next free stack memory
     # before using saved registers (s1 -- s11), push them on the stack
-    sw s1, 0(sp)
-    addi sp, sp, -4
-    add s1, a0, zero
 
     # stack discipline:
     # caller:
     # - self object is passed in a0
-    la a0, _string1.content
+    la a0, _string1
     # - control link is pushed first on the stack
     sw fp, 0(sp)
     addi sp, sp, -4
     # - arguments are pushed in reverse order on the stack
 
-    jal Object.copy
+    jal String.length
 
-    sw fp, 0(sp)
-    addi sp, sp, -4
+    lw t0, 12(a0)
+    li t1, 1337
 
-    la t0, _string1.content
-    sw t0, 0(sp)
-    addi sp, sp, -4
-
-    sw a0, 0(sp)
-    addi sp, sp, -4
-
-    jal compare_strings
-
-    beqz a0, Main.main.not_ok
+    bne t0, t1, Main.main.not_ok
 
 Main.main.ok:
-    add a0, s1, zero
-
     sw fp, 0(sp)
     addi sp, sp, -4
 
@@ -65,8 +51,6 @@ Main.main.ok:
     j Main.main.end
 
 Main.main.not_ok:
-    add a0, s1, zero
-
     sw fp, 0(sp)
     addi sp, sp, -4
 
@@ -78,9 +62,6 @@ Main.main.not_ok:
 
 Main.main.end:
     addi sp, sp, 4
-    lw s1, 0(sp)
-
-    addi sp, sp, 4
     lw ra, 0(sp)
 
     addi sp, sp, 4
@@ -88,79 +69,6 @@ Main.main.end:
 
     ret
 
-
-# arguments passed on the stack; nothing in a0 (free function)
-# returns 0 in a0 if strings differ; 1 if they are the same
-compare_strings:
-    add fp, sp, 0
-
-    sw ra, 0(sp)
-    addi sp, sp, -4
-
-    lw t0, 4(fp)
-    lw t1, 8(fp)
-
-    # check pointers are different
-    beq t0, t1, compare_strings.not_ok
-
-    # check if String
-    li t4, 4
-    lw t2, 0(t0)
-    bne t2, t4, compare_strings.not_ok
-
-    lw t2, 0(t1)
-    bne t2, t4, compare_strings.not_ok
-
-    # compare String lengths
-    lw t2, 12(t0)
-    lw t2, 12(t2)
-
-    lw t3, 12(t1)
-    lw t3, 12(t3)
-
-    bne t2, t3, compare_strings.not_ok
-
-    # compare object sizes
-    lw t2, 4(t0)
-    lw t3, 4(t1)
-
-    bne t2, t3, compare_strings.not_ok
-
-    # compare contents
-
-    addi t2, t2, -4 # t2 = number of words in string
-    addi t3, t0, 16
-    addi t4, t1, 16
-
-compare_strings.loop:
-    lw t5, 0(t3)
-    lw t6, 0(t4)
-
-    bne t5, t6, compare_strings.not_ok
-
-    addi t2, t2, -1
-    addi t3, t3, 4
-    addi t4, t4, 4
-    bnez t2, compare_strings.loop
-
-# compare_strings.ok:
-    li a0, 1
-
-    j compare_strings.end
-
-compare_strings.not_ok:
-    li a0, 0
-
-compare_strings.end:
-    addi sp, sp, 4
-    lw ra, 0(sp)
-
-    # pop arguments
-    addi sp, sp, 8
-
-    addi sp, sp, 4
-    lw fp, 0(sp)
-    ret
 
 .data
 # ------------- Name table of classes ------------------------------------------
@@ -526,17 +434,15 @@ _string1.length:
     .word 2  # class tag;       2 for Int
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
-    .word 13  # first attribute; value of Int
+    .word 1337  # first attribute; value of Int
 
     .word -1 # GC tag
-_string1.content:
+_string1:
     .word 4  # class tag;       4 for String
-    .word 8  # object size;     8 words (16 + 16 bytes); GC tag not included
+    .word 5  # object size;     5 words (16 + 4 bytes); GC tag not included
     .word String_dispTab
     .word _string1.length # first attribute; pointer length
-    .string "hello world!\n" # includes terminating null char
-    .byte 0
-    .byte 0
+    .word 0 # content is bytes 0 0 0 0
 
     .word -1 # GC tag
 _ok_string.length:
