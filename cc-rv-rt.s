@@ -347,7 +347,7 @@ _IO.out_int.await_write:
 _IO.out_int.clear_stack:
     sb zero, 0(t3)
     beq t3, sp, _IO.out_int.end
-    addi t3, t3, -1
+    addi t3, t3, 1
     j _IO.out_int.clear_stack
 
 _IO.out_int.end:
