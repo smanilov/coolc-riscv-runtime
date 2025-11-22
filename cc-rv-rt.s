@@ -1040,6 +1040,73 @@ _String.substr.out_of_range:
 
 # ------------- End of implementation of predefined classes --------------------
 
+# ----------------- Utility functions ------------------------------------------
+
+.globl _string_compare
+_string_compare:
+# Caller convention: callee prelude
+    add fp, sp, zero
+    sw ra, 0(sp)    # fp[0]: ra
+    addi sp, sp, -4
+    sw a0, 0(sp)    # fp[-4]: self
+    addi sp, sp, -4
+
+    # copy Bool prototype to store the result
+    la a0, Bool_protObj
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    jal Object.copy
+
+    sw a0, 0(sp)    # fp[-8]: result
+    addi sp, sp, -4
+
+    lw t0, 4(fp)       # t0 = fn-arg1
+    lw t0, 12(t0)      # t0 = &arg->length
+    lw t0, 12(t0)      # t0 = arg->length->value
+
+    lw t1, -4(fp)      # t1 = self
+    lw t1, 12(t1)      # t1 = &self->length
+    lw t1, 12(t1)      # t1 = self->length->value
+
+    # if lengths are different, return false
+    bne t0, t1, _string_compare_end
+
+_string_compare_pre_loop:
+    # result = true by default
+    addi t1, zero, 1
+    sw t1, 12(a0)
+    lw t1, 4(fp)       # t1 = fn-arg1
+    addi t1, t1, 16    # t1 = &self->data
+    lw t2, -4(fp)      # t2 = self
+    addi t2, t2, 16    # t2 = &self->data
+
+_string_compare_loop:
+    beqz t0, _string_compare_end
+    lb t3, 0(t1)
+    lb t4, 0(t2)
+    beq t3, t4, _string_compare_loop_again
+    sw zero, 12(a0)
+    j _string_compare_end
+_string_compare_loop_again:
+    addi t0, t0, -1
+    addi t1, t1, 1
+    addi t2, t2, 1
+    j _string_compare_loop
+
+_string_compare_end:
+    lw a0, -8(fp)    # result: fp[-8]
+    addi sp, sp, 8
+
+    lw ra, 0(fp)
+    addi sp, sp, 12
+    lw fp, 0(sp)
+
+    ret
+
+
+
+# -----------End of Utility functions ------------------------------------------
+
 .data
 
 # ------------- Spike interop --------------------------------------------------

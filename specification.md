@@ -26,3 +26,19 @@ and what the runtime system provides to the generated code.
 ## Objects
 
 TODO:
+
+## Extra helpers
+
+Here are some additional functions that are provided in this runtime library:
+
+1. _string_compare
+2. ...
+
+These functions follow the COOLC calling convention. Function-specific sections
+give more details.
+
+### _string_compare
+
+_string_compare takes a "this" argument and one additional argument to compare
+it with. It assumes both arguments are of type String.
+
