@@ -9,6 +9,8 @@ _start:
     # sp is the last addressable word in memory
     li sp, 0xfffffffc
 
+    jal _init_types
+
     # copy Main prototype
 
     # stack discipline:
@@ -75,6 +77,44 @@ _end:
     # Infinite loop until the simulation stops.
 _inf_loop:
     j _inf_loop
+
+# load the type tags from user-generated labels and store them in the type
+# fields of the constants defined in this library
+_init_types:
+    lw t0, _int_tag
+    la t1, _string1.length
+    sw t0, 0(t1)
+    la t1, _Object.abort.message_length
+    sw t0, 0(t1)
+    la t1, _String.substr.out_of_range.message_length
+    sw t0, 0(t1)
+    la t1, _colon_string.message_length
+    sw t0, 0(t1)
+    la t1, _case_abort_no_match.message_length
+    sw t0, 0(t1)
+    la t1, _case_abort_on_void.message_length
+    sw t0, 0(t1)
+    la t1, _newline_string.message_length
+    sw t0, 0(t1)
+
+    lw t0, _string_tag
+    la t1, _string1.content
+    sw t0, 0(t1)
+    la t1, _Object.abort.message
+    sw t0, 0(t1)
+    la t1, _String.substr.out_of_range.message
+    sw t0, 0(t1)
+    la t1, _colon_string.message
+    sw t0, 0(t1)
+    la t1, _case_abort_no_match.message
+    sw t0, 0(t1)
+    la t1, _case_abort_on_void.message
+    sw t0, 0(t1)
+    la t1, _newline_string.message
+    sw t0, 0(t1)
+
+    ret
+
 
 # ----------------- Object interface -------------------------------------------
 
@@ -1354,14 +1394,14 @@ class_objTab:
 
     .word -1 # GC tag
 _string1.length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 13  # first attribute; value of Int
 
     .word -1 # GC tag
 _string1.content:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 17  # object size;    8 words (16 + 16 bytes); GC tag not included
     .word String_dispTab
     .word _string1.length # first attribute; pointer length
@@ -1373,14 +1413,14 @@ _string1.content:
 
     .word -1 # GC tag
 _Object.abort.message_length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 49  # first attribute; value of Int
 
     .word -1 # GC tag
 _Object.abort.message:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 17  # object size;     17 words (16 + 52 bytes); GC tag not included
     .word String_dispTab
     .word _Object.abort.message_length # first attribute; pointer length
@@ -1390,14 +1430,14 @@ _Object.abort.message:
 
     .word -1 # GC tag
 _String.substr.out_of_range.message_length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 59  # first attribute; value of Int
 
     .word -1 # GC tag
 _String.substr.out_of_range.message:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 19  # object size;     19 words (16 + 60 bytes); GC tag not included
     .word String_dispTab
     .word _String.substr.out_of_range.message_length # first attribute; pointer length
@@ -1406,14 +1446,14 @@ _String.substr.out_of_range.message:
 
     .word -1 # GC tag
 _colon_string.message_length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 1  # first attribute; value of Int
 
     .word -1 # GC tag
 _colon_string.message:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 5  # object size;     5 words (16 + 4 bytes); GC tag not included
     .word String_dispTab
     .word _colon_string.message_length # first attribute; pointer length
@@ -1423,14 +1463,14 @@ _colon_string.message:
 
     .word -1 # GC tag
 _case_abort_no_match.message_length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 38  # first attribute; value of Int
 
     .word -1 # GC tag
 _case_abort_no_match.message:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 14  # object size;     14 words (16 + 40 bytes); GC tag not included
     .word String_dispTab
     .word _case_abort_no_match.message_length # first attribute; pointer length
@@ -1439,14 +1479,14 @@ _case_abort_no_match.message:
 
     .word -1 # GC tag
 _case_abort_on_void.message_length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 34  # first attribute; value of Int
 
     .word -1 # GC tag
 _case_abort_on_void.message:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 13  # object size;     13 words (16 + 36 bytes); GC tag not included
     .word String_dispTab
     .word _case_abort_on_void.message_length # first attribute; pointer length
@@ -1455,14 +1495,14 @@ _case_abort_on_void.message:
 
     .word -1 # GC tag
 _newline_string.message_length:
-    .word _int_tag  # class tag;       2 for Int
+    .word -1  # class tag; loaded in _init_types
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 1  # first attribute; value of Int
 
     .word -1 # GC tag
 _newline_string.message:
-    .word _string_tag  # class tag;       4 for String
+    .word -1  # class tag; loaded in _init_types
     .word 5  # object size;     5 words (16 + 4 bytes); GC tag not included
     .word String_dispTab
     .word _newline_string.message_length # first attribute; pointer length
