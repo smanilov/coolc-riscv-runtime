@@ -877,11 +877,11 @@ String.substr:
     sw ra, 0(sp)
     addi sp, sp, -4
 
-    lw t0, 4(fp)   # t0 = from (fn-arg1)
+    lw t0, 8(fp)   # t0 = from (fn-arg1)
     lw t0, 12(t0)  # t0 = from->value
     bltz t0, _String.substr.out_of_range
 
-    lw t1, 8(fp)   # t1 = length (fn-arg2)
+    lw t1, 4(fp)   # t1 = length (fn-arg2)
     lw t1, 12(t1)  # t1 = length->value
     bltz t1, _String.substr.out_of_range
 
@@ -938,12 +938,12 @@ String.substr:
 
     addi t2, a0, 16    # t2 = &new_content
     addi t4, s1, 16    # t4 = &self->content
-    lw t0, 4(fp)       # t0 = from (fn-arg1)
+    lw t0, 8(fp)       # t0 = from (fn-arg1)
     lw t0, 12(t0)      # t0 = from->value
 
     add t4, t4, t0    # t4 = &self->content[from->value]
 
-    lw t3, 8(fp)       # t3 = length (fn-arg2)
+    lw t3, 4(fp)       # t3 = length (fn-arg2)
     lw t3, 12(t3)      # t3 = length->value
 
 _String.substr.copy:
