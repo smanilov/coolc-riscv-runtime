@@ -1042,6 +1042,86 @@ _String.substr.out_of_range:
 
 # ----------------- Utility functions ------------------------------------------
 
+.globl _compare_equal
+_compare_equal:
+# Caller convention: callee prelude
+    add fp, sp, zero
+    sw ra, 0(sp)    # fp[0]: ra
+    addi sp, sp, -4
+    sw a0, 0(sp)    # fp[-4]: self
+    addi sp, sp, -4
+
+    # copy Bool prototype to store the result
+    la a0, Bool_protObj
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    jal Object.copy
+
+    sw a0, 0(sp)    # fp[-8]: result
+    addi sp, sp, -4
+
+    lw t0, 4(fp)       # t0 = fn-arg1
+    lw t1, -4(fp)      # t1 = self
+
+    # check dynamic types are the same
+    lw t2, 0(t0)
+    lw t3, 0(t1)
+    bne t2, t3, _compare_equal_end
+
+    # if type is String: call _string_compare
+    lw t3, _string_tag
+    bne t2, t3, _compare_equal_not_string
+
+    # call _string_compare
+    lw a0, -4(fp)
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    lw t0, 4(fp)
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal _string_compare
+    # result is in a0
+
+    addi sp, sp, 8
+    lw ra, 0(fp)
+    addi sp, sp, 12
+    lw fp, 0(sp)
+    ret
+
+_compare_equal_not_string:
+    # if type is Int: subtract values, not pointers
+    lw t3, _int_tag
+    bne t2, t3, _compare_equal_not_int
+    lw t0, 12(t0)
+    lw t1, 12(t1)
+    j _compare_equal_basic
+
+_compare_equal_not_int:
+    # if type is Bool: subtract values, not pointers
+    lw t3, _bool_tag
+    bne t2, t3, _compare_equal_basic
+    lw t0, 12(t0)
+    lw t1, 12(t1)
+    j _compare_equal_basic
+
+_compare_equal_basic:
+    # subtract pointers and check if zero
+    sub t0, t0, t1
+    seqz t0, t0
+    lw t1, -8(fp)
+    sw t0, 12(t1)
+
+_compare_equal_end:
+    lw a0, -8(fp)    # result: fp[-8]
+    addi sp, sp, 8
+
+    lw ra, 0(fp)
+    addi sp, sp, 12
+    lw fp, 0(sp)
+
+    ret
+
+
 .globl _string_compare
 _string_compare:
 # Caller convention: callee prelude
@@ -1104,6 +1184,136 @@ _string_compare_end:
     ret
 
 
+# signature: _case_abort_no_match(file_name: String, line_no: Int, class_name: String): no_ret
+.globl _case_abort_no_match
+_case_abort_no_match:
+    # stack discipline
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # print abort message
+
+    # print file name
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    lw t0, 12(fp) # file_name is first argument to _case_abort_no_match
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # print colon
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _colon_string.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # print line number
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    lw t0, 8(fp) # line_no is the second argument of _case_abort_no_match
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_int
+
+    # print abort message
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _case_abort_no_match.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # print class name
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    lw t0, 4(fp) # class_name is third argument to _case_abort_no_match
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # print newline
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _newline_string.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # The next three lines tell Spike to stop the simulation.
+    la t0, tohost
+    li t1, 1
+    sw t1, 0(t0)
+
+    # an infinite loop for good measure
+    j _inf_loop
+
+
+# signature: _case_abort_on_void(file_name: String, line_no: Int): no_ret
+.globl _case_abort_on_void
+_case_abort_on_void:
+    # stack discipline
+    # callee:
+    # - activation frame starts at the stack pointer
+    add fp, sp, 0
+    # - previous return address is first on the activation frame
+    sw ra, 0(sp)
+    addi sp, sp, -4
+
+    # print abort message
+
+    # print file name
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    lw t0, 8(fp) # file_name is first argument to _case_abort_on_void
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # print colon
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _colon_string.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # print line number
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    lw t0, 4(fp) # line_no is the second argument of _case_abort_on_void
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_int
+
+    # print abort message
+    sw fp, 0(sp)
+    addi sp, sp, -4
+    # - arguments are pushed in reverse order on the stack
+    la t0, _case_abort_on_void.message
+    sw t0, 0(sp)
+    addi sp, sp, -4
+    jal IO.out_string
+
+    # The next three lines tell Spike to stop the simulation.
+    la t0, tohost
+    li t1, 1
+    sw t1, 0(t0)
+
+    # an infinite loop for good measure
+    j _inf_loop
+
 
 # -----------End of Utility functions ------------------------------------------
 
@@ -1144,14 +1354,14 @@ class_objTab:
 
     .word -1 # GC tag
 _string1.length:
-    .word 2  # class tag;       2 for Int
+    .word _int_tag  # class tag;       2 for Int
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 13  # first attribute; value of Int
 
     .word -1 # GC tag
 _string1.content:
-    .word 4  # class tag;       4 for String
+    .word _string_tag  # class tag;       4 for String
     .word 17  # object size;    8 words (16 + 16 bytes); GC tag not included
     .word String_dispTab
     .word _string1.length # first attribute; pointer length
@@ -1163,14 +1373,14 @@ _string1.content:
 
     .word -1 # GC tag
 _Object.abort.message_length:
-    .word 2  # class tag;       2 for Int
+    .word _int_tag  # class tag;       2 for Int
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
     .word 49  # first attribute; value of Int
 
     .word -1 # GC tag
 _Object.abort.message:
-    .word 4  # class tag;       4 for String
+    .word _string_tag  # class tag;       4 for String
     .word 17  # object size;     17 words (16 + 52 bytes); GC tag not included
     .word String_dispTab
     .word _Object.abort.message_length # first attribute; pointer length
@@ -1180,16 +1390,82 @@ _Object.abort.message:
 
     .word -1 # GC tag
 _String.substr.out_of_range.message_length:
-    .word 2  # class tag;       2 for Int
+    .word _int_tag  # class tag;       2 for Int
     .word 4  # object size;     4 words (16 bytes); GC tag not included
     .word 0  # dispatch table;  Int has no methods
-    .word 60  # first attribute; value of Int
+    .word 59  # first attribute; value of Int
 
     .word -1 # GC tag
 _String.substr.out_of_range.message:
-    .word 4  # class tag;       4 for String
+    .word _string_tag  # class tag;       4 for String
     .word 19  # object size;     19 words (16 + 60 bytes); GC tag not included
     .word String_dispTab
     .word _String.substr.out_of_range.message_length # first attribute; pointer length
     .string "Call to String.substr() requested a substring out of range\n" # includes terminating null char
     # no padding needed, since length divides by 4
+
+    .word -1 # GC tag
+_colon_string.message_length:
+    .word _int_tag  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 1  # first attribute; value of Int
+
+    .word -1 # GC tag
+_colon_string.message:
+    .word _string_tag  # class tag;       4 for String
+    .word 5  # object size;     5 words (16 + 4 bytes); GC tag not included
+    .word String_dispTab
+    .word _colon_string.message_length # first attribute; pointer length
+    .string ":" # includes terminating null char
+    .byte 0
+    .byte 0
+
+    .word -1 # GC tag
+_case_abort_no_match.message_length:
+    .word _int_tag  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 38  # first attribute; value of Int
+
+    .word -1 # GC tag
+_case_abort_no_match.message:
+    .word _string_tag  # class tag;       4 for String
+    .word 14  # object size;     14 words (16 + 40 bytes); GC tag not included
+    .word String_dispTab
+    .word _case_abort_no_match.message_length # first attribute; pointer length
+    .string " No match in case statement for Class " # includes terminating null char
+    .byte 0
+
+    .word -1 # GC tag
+_case_abort_on_void.message_length:
+    .word _int_tag  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 34  # first attribute; value of Int
+
+    .word -1 # GC tag
+_case_abort_on_void.message:
+    .word _string_tag  # class tag;       4 for String
+    .word 13  # object size;     13 words (16 + 36 bytes); GC tag not included
+    .word String_dispTab
+    .word _case_abort_on_void.message_length # first attribute; pointer length
+    .string " Match on void in case statement.\n" # includes terminating null char
+    .byte 0
+
+    .word -1 # GC tag
+_newline_string.message_length:
+    .word _int_tag  # class tag;       2 for Int
+    .word 4  # object size;     4 words (16 bytes); GC tag not included
+    .word 0  # dispatch table;  Int has no methods
+    .word 1  # first attribute; value of Int
+
+    .word -1 # GC tag
+_newline_string.message:
+    .word _string_tag  # class tag;       4 for String
+    .word 5  # object size;     5 words (16 + 4 bytes); GC tag not included
+    .word String_dispTab
+    .word _newline_string.message_length # first attribute; pointer length
+    .string "\n" # includes terminating null char
+    .byte 0
+    .byte 0
